@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>슬라이드 PDF 변환기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{--bg:#f3f4f6;--panel:#fff;--line:#e2e5ea;--ink:#14181f;--dim:#6b7280;--ac:#1d4ed8;--acbg:#eef3ff;--ok:#0f7b4f;--warn:#b45309}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,'Noto Sans KR',-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;min-height:100vh;display:flex;flex-direction:column}
+button,select,input{font:inherit;color:inherit}
+header{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:56px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500}
+.btn:hover{background:var(--bg)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+main{flex:1;display:grid;grid-template-columns:340px minmax(0,1fr);max-width:1360px;width:100%;margin:0 auto}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:24px 28px;display:flex;flex-direction:column;gap:22px}
+section.view{padding:24px 28px;display:flex;flex-direction:column;gap:24px;min-width:0}
+.field{display:flex;flex-direction:column;gap:8px}
+.field>label,.cap{font-size:12px;font-weight:600;color:var(--dim)}
+.row{display:flex;justify-content:space-between;align-items:baseline}
+.val{font-variant-numeric:tabular-nums;font-size:13px;font-weight:600}
+#dropZone{border:1.5px dashed #c5cad3;border-radius:8px;padding:18px;text-align:center;cursor:pointer;color:var(--dim);transition:.15s}
+#dropZone:hover,#dropZone.over{border-color:var(--ac);background:var(--acbg);color:var(--ac)}
+.file{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:13px}
+.file span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.chip{flex:none;background:var(--acbg);color:var(--ac);border-radius:99px;padding:1px 10px;font-size:12px;font-weight:700}
+select{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:#fff;width:100%}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.go{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:11px;font-weight:700;cursor:pointer;width:100%}
+.go:hover{background:#1e40af}
+.go:disabled{opacity:.5;cursor:not-allowed}
+.go.ok{background:var(--ok)}
+.hide{display:none!important}
+.track{height:6px;background:var(--line);border-radius:9px;overflow:hidden}
+#bar{height:100%;width:0;background:var(--ac);transition:width .2s}
+.prog{display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--dim)}
+.prog .row b{color:var(--ink);font-weight:600}
+.bar-head{display:flex;justify-content:space-between;align-items:center}
+.nav{display:flex;gap:8px;align-items:center}
+.stage{position:relative;aspect-ratio:16/9;overflow:hidden;background:#eaeff7;border:1px solid var(--line);border-radius:8px}
+#slideSandbox{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;max-height:340px;overflow:auto;padding:2px}
+.thumbs figure{position:relative;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}
+.thumbs img{display:block;width:100%}
+.thumbs figcaption{position:absolute;left:6px;top:6px;background:rgba(20,24,31,.78);color:#fff;font-size:11px;padding:0 7px;border-radius:4px;font-variant-numeric:tabular-nums}
+.empty{grid-column:1/-1;text-align:center;color:var(--dim);padding:36px 0}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:6px;font-size:13px;opacity:0;transform:translateY(12px);transition:.25s;pointer-events:none}
+#toast.on{opacity:1;transform:none}
+@media(max-width:900px){main{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>슬라이드 PDF 변환기</h1>
+</header>
+
+<main>
+  <aside>
+    <div class="field">
+      <div id="dropZone">HTML 파일을 끌어놓거나 클릭
+        <input type="file" id="fileInput" accept=".html,.htm" class="hide">
+      </div>
+      <div class="file"><span id="fileName">선택된 파일 없음</span><span id="slideCount" class="chip">–</span></div>
+    </div>
+
+    <div class="field">
+      <div class="row"><label class="cap" for="scaleInput">해상도</label><span id="scaleLabel" class="val">2.0x</span></div>
+      <input type="range" id="scaleInput" min="1" max="3" step="0.5" value="2">
+    </div>
+
+    <div class="field">
+      <div class="row"><label class="cap" for="delayInput">렌더링 대기</label><span id="delayLabel" class="val">250ms</span></div>
+      <input type="range" id="delayInput" min="100" max="800" step="50" value="250">
+    </div>
+
+    <div class="field">
+      <button id="startBtn" class="go">PDF 변환</button>
+      <button id="downloadBtn" class="go ok hide">PDF 다운로드 (<span id="dlCount">0</span>쪽)</button>
+    </div>
+
+    <div id="progress" class="prog hide">
+      <div class="bar-head"><b id="status">준비 중</b><button id="stopBtn" class="btn">중단</button></div>
+      <div class="track"><div id="bar"></div></div>
+      <div class="row"><span id="count">0 / 0</span><span id="elapsed">0.0s</span></div>
+    </div>
+  </aside>
+
+  <section class="view">
+    <div class="field">
+      <div class="bar-head">
+        <span class="cap">미리보기</span>
+        <div class="nav">
+          <button id="prevSlideNav" class="btn">‹</button>
+          <span id="liveSlideIndex" class="val">1 / 1</span>
+          <button id="nextSlideNav" class="btn">›</button>
+        </div>
+      </div>
+      <div id="stage" class="stage"><iframe id="slideSandbox" sandbox="allow-scripts allow-same-origin"></iframe></div>
+    </div>
+
+    <div class="field">
+      <div class="row"><span class="cap">생성된 페이지</span><span id="thumbCount" class="val">0</span></div>
+      <div id="thumbGrid" class="thumbs"><div id="emptyNotice" class="empty">변환하면 여기에 표시됩니다</div></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+
+    // ───────── State ─────────
+    const $ = id => document.getElementById(id);
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const BG = '#f6f8fc', SW = 1920, SH = 1080;
+    const MAX_PX = 16e6;   // 캔버스 최대 픽셀 수 (모바일/Safari 한도 이내)
+    const MAX_H = 6000;    // 확장 높이 상한(px)
+    let totalSlides = 0, curIdx = 0, busy = false, abort = false, pdfBlob = null;
+    const sandbox = $('slideSandbox');
+
+    // ───────── 애니메이션 고정 (흐림 방지) ─────────
+    const ANTI_BLUR_CSS = `
+      *,*::before,*::after{animation:none!important;transition:none!important}
+      .slide,.slide.on,section.slide,section.slide.on{opacity:1!important;transform:none!important;filter:none!important}
+      .step.in{opacity:1!important;transform:none!important;visibility:visible!important}
+      .step:not(.in){opacity:0!important}
+      .fml.deriv.step:not(.in){display:none!important}
+      .fml.deriv.step.in{display:grid!important}`;
+
+    function preprocess(html) {
+      const out = html.replace(/animation\s*:\s*fade[^;}\n]*/gi, 'animation:none')
+                      .replace(/transition\s*:\s*opacity[^;}\n]*/gi, 'transition:none');
+      const tag = `<style id="pdf-freeze">${ANTI_BLUR_CSS}</style>`;
+      return out.includes('</head>') ? out.replace('</head>', tag + '</head>') : tag + out;
+    }
+    function inject(d) {
+      if (!d || !d.head) return;
+      let s = d.getElementById('pdf-freeze');
+      if (!s) { s = d.createElement('style'); s.id = 'pdf-freeze'; d.head.appendChild(s); }
+      s.textContent = ANTI_BLUR_CSS;
+    }
+    function sharp(slide) {
+      if (!slide) return;
+      const imp = (e, k, v) => e.style.setProperty(k, v, 'important');
+      ['animation:none', 'transition:none', 'opacity:1', 'transform:none', 'filter:none'].forEach(p => imp(slide, ...p.split(':')));
+      slide.querySelectorAll('*').forEach(e => {
+        imp(e, 'animation', 'none'); imp(e, 'transition', 'none');
+        if (e.classList.contains('step')) {
+          if (e.classList.contains('in')) { imp(e, 'opacity', '1'); imp(e, 'transform', 'none'); imp(e, 'visibility', 'visible'); }
+          else imp(e, 'opacity', '0');
+        } else if (!e.closest('.step:not(.in)')) imp(e, 'opacity', '1');
+      });
+      void slide.offsetHeight;
+    }
+
+    // ───────── 슬라이드 탐색 ─────────
+    const NOISE = /^(SCRIPT|STYLE|LINK|META|TEMPLATE|NOSCRIPT)$/;
+    const hasContent = e => !NOISE.test(e.tagName) && (e.textContent.trim().length > 0 || !!e.querySelector('img,canvas,svg,video'));
+    const leafOnly = l => l.filter(e => !l.some(o => o !== e && e.contains(o)));
+    const sigOf = e => e.tagName + '.' + Array.from(e.classList).filter(c => !/^(on|active|current|present|show|visible|selected|past|future)$/i.test(c)).sort().join('.');
+    // 슬라이드 인식: 여러 전략을 순서대로 시도 (구조만 사용 → 복제 문서에서도 동일 결과)
+    function getSlides(d) {
+      const B = d.body, done = (list, kind) => { list.kind = kind; return list; };
+      if (!B) return done([], 'none');
+      const q = sel => Array.from(d.querySelectorAll(sel)).filter(hasContent);
+      let l = q('.slide');                                                   if (l.length) return done(l, 'class');
+      l = leafOnly(q('.reveal .slides section'));                            if (l.length) return done(l, 'reveal');
+      l = leafOnly(q('[data-slide],.swiper-slide,.slide-page,.slide-item,.slide-container,.page,.pages>*,.slides>*,.deck>*'));
+      if (l.length) return done(l, 'known');
+      l = leafOnly(q('section'));                                            if (l.length > 1) return done(l, 'section');
+      l = leafOnly(q('[class*="slide" i]:not([class*="slider" i]):not([class*="slideshow" i])'));
+      if (l.length > 1) return done(l, 'partial');
+      // 구조 추론: 같은 모양의 형제 요소가 가장 많이 반복되는 그룹
+      let best = [];
+      d.querySelectorAll('body, body *').forEach(p => {
+        if (NOISE.test(p.tagName)) return;
+        let depth = 0; for (let n = p; n && n !== B; n = n.parentElement) depth++;
+        if (depth > 3) return;
+        const kids = Array.from(p.children).filter(hasContent), groups = {};
+        kids.forEach(c => (groups[sigOf(c)] = groups[sigOf(c)] || []).push(c));
+        Object.values(groups).forEach(g => {
+          const avg = g.reduce((s, c) => s + c.textContent.trim().length, 0) / g.length;
+          if (g.length > best.length && g.length >= 2 && avg >= 15) best = g;
+        });
+      });
+      if (best.length) return done(best, 'inferred');
+      return done(hasContent(B) ? [B] : [], 'body');   // 최후: 문서 전체를 1장으로
+    }
+    function ctx() {
+      const win = sandbox.contentWindow, doc = sandbox.contentDocument || win.document;
+      return { win, doc, slides: getSlides(doc) };
+    }
+    function setSlide(idx, reveal = true) {
+      try {
+        const { win, doc, slides } = ctx();
+        if (!slides.length) return;
+        idx = Math.max(0, Math.min(slides.length - 1, idx));
+        curIdx = idx;
+        if (typeof win.show === 'function') win.show(idx, reveal);
+        else if (slides.kind !== 'body') slides.forEach((s, k) => {
+          const on = k === idx;
+          ['on', 'active', 'present'].forEach(c => s.classList.toggle(c, on));
+          s.style.display = on ? '' : 'none';
+          if (on && doc.defaultView.getComputedStyle(s).display === 'none') s.style.display = 'block';
+          if (on && reveal) s.querySelectorAll('.step').forEach(e => e.classList.add('in'));
+        });
+        ['FIT', 'KNN'].forEach(n => win[n] && typeof win[n].draw === 'function' && win[n].draw());
+        if (win.OF && typeof win.OF.init === 'function') win.OF.init();
+        inject(doc);
+        slides[idx].scrollTop = 0;
+        sharp(slides[idx]);
+        $('liveSlideIndex').textContent = `${idx + 1} / ${totalSlides}`;
+      } catch (e) { console.warn(e); }
+    }
+    // ───────── 로드 ─────────
+    function resizeStage() { sandbox.style.transform = `scale(${$('stage').clientWidth / SW})`; }
+    new ResizeObserver(resizeStage).observe($('stage'));
+
+    function load(html) {
+      $('slideCount').textContent = '…';
+      sandbox.onload = async () => {
+        try {
+          let { doc, slides } = ctx();
+          const t0 = Date.now();
+          await sleep(300);
+          // 스크립트가 슬라이드를 늦게 만드는 경우를 위해 최대 5초 재탐색
+          while (Date.now() - t0 < 5000) {
+            ({ doc, slides } = ctx());
+            if (slides.length && slides.kind !== 'body') break;
+            await sleep(250);
+          }
+          inject(doc);
+          if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+          ({ slides } = ctx());
+          totalSlides = slides.length;
+          $('slideCount').textContent = `${totalSlides}장`;
+          if (!totalSlides) toast('슬라이드를 찾지 못했습니다.');
+          else if (slides.kind === 'body') toast('슬라이드 구분이 없어 전체를 1장으로 처리합니다.');
+          setSlide(0); resizeStage();
+        } catch (e) { console.error(e); $('slideCount').textContent = '0장'; }
+      };
+      sandbox.srcdoc = preprocess(html);   // srcdoc: file:// 로 열어도 iframe 접근 가능
+    }
+    function handleFile(f) {
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = e => { $('fileName').textContent = f.name; load(e.target.result); };
+      r.readAsText(f, 'UTF-8');
+    }
+    const dz = $('dropZone');
+    dz.onclick = () => $('fileInput').click();
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add('over'); };
+    dz.ondragleave = () => dz.classList.remove('over');
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove('over'); handleFile(e.dataTransfer.files[0]); };
+    $('fileInput').onchange = e => handleFile(e.target.files[0]);
+    $('prevSlideNav').onclick = () => setSlide(curIdx - 1);
+    $('nextSlideNav').onclick = () => setSlide(curIdx + 1);
+    $('scaleInput').oninput = e => $('scaleLabel').textContent = `${(+e.target.value).toFixed(1)}x`;
+    $('delayInput').oninput = e => $('delayLabel').textContent = `${e.target.value}ms`;
+
+    function toast(msg) {
+      const t = $('toast'); t.textContent = msg; t.classList.add('on');
+      clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 3000);
+    }
+
+    // ───────── 하단 자동 확장: 실제 콘텐츠 높이 측정 ─────────
+    function measureHeight(slide) {
+      const view = slide.ownerDocument.defaultView;
+      const top = slide.getBoundingClientRect().top;
+      const pad = parseFloat(view.getComputedStyle(slide).paddingBottom) || 0;
+      let h = Math.max(SH, slide.scrollHeight);
+      slide.querySelectorAll('*').forEach(e => {
+        if (view.getComputedStyle(e).position === 'fixed') return;
+        const r = e.getBoundingClientRect();
+        if (r.height > 0) h = Math.max(h, r.bottom - top + slide.scrollTop + pad);
+      });
+      return Math.min(MAX_H, Math.ceil(h));
+    }
+
+    // 복제 문서: 해당 슬라이드만 남기고 높이를 콘텐츠 전체로 펼침
+    function prepClone(cd, idx, orig, H) {
+      inject(cd);
+      const all = getSlides(cd), sl = all[idx];
+      if (all.kind !== 'body') all.forEach((x, k) => { if (k !== idx) x.remove(); });
+      if (!sl) return;
+      sharp(sl);
+      for (let p = sl.parentElement; p; p = p.parentElement) p.style.setProperty('overflow', 'visible', 'important');
+      const st = (k, v) => sl.style.setProperty(k, v, 'important');
+      if (all.kind !== 'body') { st('position', 'absolute'); st('left', '0'); st('top', '0'); st('right', 'auto'); st('bottom', 'auto'); }
+      st('width', SW + 'px'); st('height', H + 'px'); st('overflow', 'visible');
+      const src = orig.querySelectorAll('canvas'), dst = sl.querySelectorAll('canvas');
+      src.forEach((o, i) => {
+        const t = dst[i];
+        if (!t || !o.width || !o.height) return;
+        t.width = o.width; t.height = o.height;
+        const c = t.getContext('2d'); c.globalAlpha = 1; c.clearRect(0, 0, t.width, t.height); c.drawImage(o, 0, 0);
+      });
+    }
+
+    function makeThumb(cv) {
+      const c = document.createElement('canvas');
+      c.width = 320; c.height = Math.round(320 * cv.height / cv.width);
+      c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height);
+      const url = c.toDataURL('image/jpeg', .7);
+      c.width = c.height = 0;
+      return url;
+    }
+
+    // ───────── 캡처 (메모리 안전: 즉시 JPEG 변환 후 캔버스 해제) ─────────
+    async function capture(slide, idx, scale) {
+      const { doc } = ctx();
+      inject(doc); sharp(slide); slide.scrollTop = 0;
+      if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+      await frame();
+      const H = measureHeight(slide);
+      let s = Math.min(scale, Math.sqrt(MAX_PX / (SW * H)));
+      for (let tries = 0; tries < 3; tries++) {
+        let cv;
+        try {
+          cv = await html2canvas(slide, {
+            scale: s, useCORS: true, allowTaint: false, backgroundColor: BG, logging: false,
+            width: SW, height: H, windowWidth: SW, windowHeight: SH, x: 0, y: 0, scrollX: 0, scrollY: 0,
+            onclone: cd => prepClone(cd, idx, slide, H)
+          });
+          const w = cv.width, h = cv.height, thumb = makeThumb(cv);
+          const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', .92));
+          cv.width = cv.height = 0; cv = null;
+          if (!blob) throw new Error('JPEG 인코딩 실패');
+          return { bytes: new Uint8Array(await blob.arrayBuffer()), w, h, H, thumb };
+        } catch (e) {
+          console.warn('capture retry', e);
+          if (cv) cv.width = cv.height = 0;
+          s = Math.max(1, s * .7);      // 실패 시 해상도를 낮춰 재시도
+          await sleep(250);
+        }
+      }
+      throw new Error(`슬라이드 ${idx + 1} 캡처 실패`);
+    }
+
+    // ───────── 경량 PDF 작성기 (JPEG 직접 삽입, 메모리 최소) ─────────
+    class Pdf {
+      constructor() {
+        this.p = []; this.len = 0; this.off = {}; this.n = 0; this.kids = [];
+        this.s('%PDF-1.4\n'); this.b(new Uint8Array([37, 226, 227, 207, 211, 10]));
+      }
+      s(t) { this.p.push(t); this.len += t.length; }
+      b(u) { this.p.push(u); this.len += u.length; }
+      obj(id, head, data) {
+        this.off[id] = this.len;
+        if (data) { this.s(`${id} 0 obj\n<<${head}/Length ${data.length}>>\nstream\n`); this.b(data); this.s('\nendstream\nendobj\n'); }
+        else this.s(`${id} 0 obj\n<<${head}>>\nendobj\n`);
+      }
+      add(jpg, w, h, pw, ph, x, y, dw, dh) {
+        const pg = 3 + this.n * 3, ct = pg + 1, im = pg + 2; this.n++;
+        this.obj(im, `/Type/XObject/Subtype/Image/Width ${w}/Height ${h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode`, jpg);
+        const c = `0.965 0.973 0.988 rg 0 0 ${pw} ${ph} re f q ${dw} 0 0 ${dh} ${x} ${y} cm /Im0 Do Q`;
+        this.obj(ct, '', new TextEncoder().encode(c));
+        this.obj(pg, `/Type/Page/Parent 2 0 R/MediaBox[0 0 ${pw} ${ph}]/Resources<</XObject<</Im0 ${im} 0 R>>>>/Contents ${ct} 0 R`);
+        this.kids.push(pg);
+        this.p = [new Blob(this.p)];   // 바이트를 Blob으로 넘겨 JS 힙 점유 해제
+      }
+      finish() {
+        this.obj(1, '/Type/Catalog/Pages 2 0 R');
+        this.obj(2, `/Type/Pages/Count ${this.kids.length}/Kids[${this.kids.map(k => k + ' 0 R').join(' ')}]`);
+        const total = 2 + this.n * 3, xr = this.len;
+        let t = `xref\n0 ${total + 1}\n0000000000 65535 f \n`;
+        for (let i = 1; i <= total; i++) t += String(this.off[i]).padStart(10, '0') + ' 00000 n \n';
+        this.s(t + `trailer\n<</Size ${total + 1}/Root 1 0 R>>\nstartxref\n${xr}\n%%EOF`);
+        return new Blob(this.p, { type: 'application/pdf' });
+      }
+    }
+    const r2 = n => Math.round(n * 100) / 100;
+    function layout(H) {   // 슬라이드 높이만큼 페이지 높이가 늘어남
+      const pw = 841.89, ph = r2(pw * H / SW);
+      return [pw, ph, 0, 0, pw, ph];
+    }
+
+    function addThumb(url, label) {
+      $('emptyNotice').classList.add('hide');
+      const f = document.createElement('figure'), i = document.createElement('img'), c = document.createElement('figcaption');
+      i.src = url; c.textContent = label;
+      f.append(i, c); $('thumbGrid').appendChild(f);
+      f.scrollIntoView({ block: 'nearest' });
+    }
+
+    // ───────── 변환 실행 ─────────
+    $('stopBtn').onclick = () => { abort = true; $('status').textContent = '중단하는 중…'; };
+
+    $('startBtn').onclick = async () => {
+      if (busy) return;
+      if (!totalSlides) return toast('변환할 슬라이드가 없습니다.');
+      busy = abort = false; busy = true;
+      $('startBtn').disabled = true;
+      $('downloadBtn').classList.add('hide');
+      $('progress').classList.remove('hide');
+      $('thumbGrid').innerHTML = '<div id="emptyNotice" class="empty hide"></div>';
+      $('thumbCount').textContent = '0';
+
+      const { slides } = ctx();
+      const scale = +$('scaleInput').value, delay = +$('delayInput').value;
+      const pdf = new Pdf(), t0 = performance.now();
+      let pages = 0;
+
+      const push = async (sl, i, label) => {
+        const r = await capture(sl, i, scale);
+        const [pw, ph, x, y, dw, dh] = layout(r.H);
+        pdf.add(r.bytes, r.w, r.h, pw, ph, x, y, dw, dh);
+        pages++;
+        addThumb(r.thumb, label);
+        $('thumbCount').textContent = pages;
+      };
+
+      try {
+        for (let i = 0; i < slides.length && !abort; i++) {
+          setSlide(i, true);
+          await sleep(delay);
+          await push(slides[i], i, `P.${i + 1}`);
+          const pct = Math.round((i + 1) / slides.length * 100);
+          $('bar').style.width = pct + '%';
+          $('status').textContent = `캡처 중 ${pct}%`;
+          $('count').textContent = `${i + 1} / ${slides.length}`;
+          $('elapsed').textContent = ((performance.now() - t0) / 1000).toFixed(1) + 's';
+          await sleep(40);   // 메인 스레드·GC 여유
+        }
+        if (!pages) throw new Error('생성된 페이지가 없습니다.');
+        pdfBlob = pdf.finish();
+        $('dlCount').textContent = pages;
+        $('downloadBtn').classList.remove('hide');
+        $('status').textContent = abort ? '중단됨 (일부 저장)' : '완료';
+        toast(`${pages}쪽 PDF 완성`);
+      } catch (e) {
+        console.error(e);
+        $('status').textContent = '실패';
+        toast(e.message || '변환 중 오류가 발생했습니다.');
+      } finally {
+        busy = false;
+        $('startBtn').disabled = false;
+        setSlide(0);
+      }
+    };
+
+    $('downloadBtn').onclick = () => {
+      if (!pdfBlob) return;
+      const base = $('fileName').textContent.replace(/\.[^/.]+$/, '').replace('선택된 파일 없음', 'slides');
+      const name = `${base}.pdf`;
+      const url = URL.createObjectURL(pdfBlob), a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    };
+
+  </script>
+</body>
+</html>
