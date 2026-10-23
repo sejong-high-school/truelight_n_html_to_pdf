@@ -1,0 +1,1991 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML 슬라이드 PDF 일괄 변환기</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- html2canvas & jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-900/30">
+          <i class="fa-solid fa-file-pdf text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold leading-none flex items-center gap-2">
+            HTML 슬라이드 PDF 일괄 변환기
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800/60">애니메이션 흐림 방지 강제 주입</span>
+          </h1>
+          <p class="text-xs text-slate-400 mt-1">전환 애니메이션(@keyframes fade)과 트랜지션을 즉시 고정(Opacity 100%)하여 흐림 없이 선명한 PDF 추출</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="loadPresetBtn" class="text-xs sm:text-sm px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-rotate-left text-cyan-400"></i>
+          <span>제공된 5차시 원본 다시 불러오기</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left Controls Panel (4 Cols) -->
+    <div class="lg:col-span-4 flex flex-col gap-5">
+
+      <!-- Upload Box -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+        <h2 class="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-file-code text-cyan-400"></i>
+          슬라이드 HTML 파일 지정
+        </h2>
+
+        <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-xl p-5 text-center cursor-pointer transition-all bg-slate-950/50 hover:bg-slate-900">
+          <input type="file" id="fileInput" accept=".html,.htm" class="hidden">
+          <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-500 mb-2 group-hover:text-cyan-400"></i>
+          <p class="text-xs font-semibold text-slate-300">다른 HTML 슬라이드 파일을 드래그하거나 클릭하여 교체</p>
+          <p class="text-[11px] text-slate-500 mt-1">기본으로 5차시_지도학습의_4단계.html 가 탑재되어 있습니다</p>
+        </div>
+
+        <div class="mt-3 p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+          <div class="truncate max-w-[210px]">
+            <span class="text-slate-400 block text-[10px]">현재 분석된 파일:</span>
+            <span id="loadedFileName" class="font-medium text-cyan-300 truncate">5차시_지도학습의_4단계.html (원본 전체)</span>
+          </div>
+          <span id="detectedSlideCount" class="px-2 py-1 rounded bg-cyan-900/40 text-cyan-400 border border-cyan-800/40 font-mono text-[11px] font-bold">인식 중...</span>
+        </div>
+      </div>
+
+      <!-- Conversion Settings Box -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-4">
+        <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-indigo-400"></i>
+          PDF 출력 옵션 설정
+        </h2>
+
+        <!-- Step Option (Updated with PPT Step-by-Step Build Option) -->
+        <div class="space-y-1.5 p-3 rounded-xl bg-slate-950/70 border border-cyan-900/40">
+          <label class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-layer-group"></i>
+            단계별 애니메이션 (.step) 캡처 방식
+          </label>
+          <select id="stepOption" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg p-2 text-xs focus:border-cyan-500 focus:outline-none">
+            <option value="complete" selected>모든 내용이 펼쳐진 최종본으로 슬라이드당 1장 (추천: 빠른 속도)</option>
+            <option value="stepByStep">✨ 클릭 단계별로 1장씩 분할 생성 (PPT 애니메이션 전개 그대로)</option>
+            <option value="initial">클릭 전 초기 상태로만 슬라이드당 1장</option>
+          </select>
+          <p class="text-[11px] text-slate-400 mt-1" id="stepOptionDesc">
+            모든 단계가 완성된 상태로 각 슬라이드당 선명한 1장씩 깨끗하게 PDF로 저장합니다.
+          </p>
+        </div>
+
+        <!-- Aspect Ratio -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-slate-400">PDF 용지 규격</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center gap-2 p-2.5 rounded-lg border border-cyan-500/60 bg-cyan-950/20 text-cyan-200 cursor-pointer">
+              <input type="radio" name="aspectRatio" value="16:9" checked class="text-cyan-500 focus:ring-0">
+              <div>
+                <div class="font-bold">16:9 와이드</div>
+                <div class="text-[10px] text-slate-400">화면 발표용 원본 규격</div>
+              </div>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-700 bg-slate-950/40 text-slate-300 hover:border-slate-600 cursor-pointer">
+              <input type="radio" name="aspectRatio" value="A4" class="text-cyan-500 focus:ring-0">
+              <div>
+                <div class="font-bold">A4 가로형</div>
+                <div class="text-[10px] text-slate-400">인쇄 및 배포용 규격</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Resolution & Quality -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-400">해상도 스케일 (선명도)</span>
+            <span id="scaleLabel" class="text-cyan-400 font-mono font-bold">2.0x (초고화질 선명 모드)</span>
+          </div>
+          <input type="range" id="scaleInput" min="1" max="3.0" step="0.5" value="2.0" class="w-full accent-cyan-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+        </div>
+
+        <!-- Render Delay -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-400">슬라이드 그래픽 렌더링 대기 시간</span>
+            <span id="delayLabel" class="text-cyan-400 font-mono font-bold">250ms</span>
+          </div>
+          <input type="range" id="delayInput" min="100" max="800" step="50" value="250" class="w-full accent-cyan-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <p class="text-[10px] text-emerald-400/90"><i class="fa-solid fa-bolt mr-1"></i>애니메이션 강제 고정 CSS가 주입되어 잔상이나 흐려짐 없이 즉시 선명하게 캡처됩니다.</p>
+        </div>
+
+        <!-- Convert Action Buttons -->
+        <button id="startConvertBtn" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-lg shadow-cyan-900/30 flex items-center justify-center gap-2 transition-all active:scale-[0.99]">
+          <i class="fa-solid fa-file-export"></i>
+          <span>전체 슬라이드 PDF 일괄 변환 시작</span>
+        </button>
+
+        <button id="downloadPdfBtn" class="w-full py-3 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 hidden flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-cloud-arrow-down text-base"></i>
+          <span>완성된 PDF 다운로드 (<span id="downloadSlideCount">0</span> 페이지)</span>
+        </button>
+      </div>
+
+      <!-- Execution Progress Box -->
+      <div id="progressCard" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl hidden">
+        <div class="flex items-center justify-between text-xs font-semibold mb-2">
+          <span class="text-slate-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-notch fa-spin text-cyan-400"></i>
+            <span id="progressStatusText">슬라이드 렌더링 준비 중...</span>
+          </span>
+          <span id="progressPercent" class="font-mono text-cyan-400 font-bold">0%</span>
+        </div>
+        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2">
+          <div id="progressBar" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full w-0 transition-all duration-200"></div>
+        </div>
+        <div class="flex justify-between text-[11px] text-slate-400 font-mono">
+          <span id="currentSlideNum">0 / 0</span>
+          <span id="elapsedTime">0.0s</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Live Preview & Thumbnail Gallery (8 Cols) -->
+    <div class="lg:col-span-8 flex flex-col gap-5">
+
+      <!-- Active Frame Monitor -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-medium">
+          <div class="flex items-center gap-2 text-slate-300">
+            <i class="fa-solid fa-display text-cyan-400"></i>
+            <span>실시간 가상 슬라이드 뷰어</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="prevSlideNav" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">‹ 이전 슬라이드</button>
+            <button id="stepSlideNav" class="px-2.5 py-1 rounded bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 text-xs">다음 클릭 (스텝) ›</button>
+            <span id="liveSlideIndex" class="font-mono text-cyan-400 font-bold text-xs">1 / 1</span>
+            <button id="nextSlideNav" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">다음 슬라이드 ›</button>
+          </div>
+        </div>
+
+        <!-- 16:9 Aspect ratio maintained frame -->
+        <div id="sandboxWrapper" class="mt-3 relative w-full aspect-video bg-[#eaeff7] rounded-xl overflow-hidden border border-slate-700 shadow-inner flex items-center justify-center">
+          <iframe id="slideSandbox" class="w-[1920px] h-[1080px] origin-top-left border-none pointer-events-auto" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+      </div>
+
+      <!-- Generated Page Thumbnails Grid -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-images text-emerald-400"></i>
+            생성된 페이지 썸네일
+            <span id="thumbCountBadge" class="text-xs font-normal text-slate-400 font-mono">(0개 생성됨)</span>
+          </h2>
+          <div class="text-xs text-slate-400">
+            변환 진행 시 각 슬라이드가 순서대로 생성됩니다.
+          </div>
+        </div>
+
+        <div id="thumbGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 overflow-y-auto max-h-[380px] custom-scrollbar p-1">
+          <div id="emptyThumbNotice" class="col-span-full py-12 text-center text-slate-500 text-xs flex flex-col items-center gap-2">
+            <i class="fa-regular fa-image text-3xl text-slate-600 mb-1"></i>
+            <span>'전체 슬라이드 PDF 일괄 변환 시작'을 누르면 모든 페이지가 캡처되어 여기에 나열됩니다.</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white shadow-2xl text-xs sm:text-sm">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+    <span id="toastMsg">작업이 완료되었습니다.</span>
+  </div>
+
+  <script>
+    // Complete 27-Slide Source Code Preserved 100%
+    const ORIGINAL_SLIDE_SOURCE = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>지도 학습의 4단계</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#f6f8fc; --bg2:#eaeff7; --card:#ffffff;
+  --line:rgba(20,35,66,.16);
+  --fg:#16233c; --dim:#5d6c86;
+  --a:#0a7ec2; --b:#b06a00; --c:#0e8a52; --d:#6a3fc0; --warn:#c8324a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:clamp(11px, min(1.12vw, 2.0vh), 24px)}
+body{
+  font-family:'Noto Sans KR',system-ui,sans-serif;
+  font-size:1.5rem;
+  background:var(--bg1); color:var(--fg);
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+.deck{position:fixed;inset:0}
+.slide{
+  position:absolute; inset:0;
+  display:none; flex-direction:column;
+  padding:1.6rem 3.4rem 2.8rem;
+  background:
+    radial-gradient(1200px 700px at 88% -10%, rgba(10,126,194,.09), transparent 60%),
+    radial-gradient(900px 600px at 4% 108%, rgba(106,63,192,.08), transparent 60%),
+    linear-gradient(160deg,var(--bg1),var(--bg2));
+  background-color: #f6f8fc;
+  width:100%; height:100%;
+}
+.slide.on{display:flex; animation:fade .28s ease}
+@keyframes fade{from{opacity:0;transform:translateY(.6rem)}to{opacity:1;transform:none}}
+.slide{overflow-y:auto; overflow-x:hidden}
+.slide::-webkit-scrollbar{width:.55rem}
+.slide::-webkit-scrollbar-thumb{background:rgba(20,35,66,.25);border-radius:99px}
+.kicker{font-size:1.425rem;letter-spacing:.22em;color:var(--a);font-weight:700;margin-bottom:.4rem}
+h1{font-size:5.85rem;font-weight:900;line-height:1.18;letter-spacing:-.02em}
+h2{font-size:3.75rem;font-weight:800;line-height:1.25;letter-spacing:-.02em;margin-bottom:.4rem}
+h3{font-size:2.25rem;font-weight:700;margin-bottom:.5rem}
+p,li,td,th{font-size:1.83rem;line-height:1.5;color:var(--fg)}
+.sub{color:var(--dim)}
+.hr{height:1px;background:var(--line);margin:.7rem 0}
+.body{flex:1 0 auto;display:flex;flex-direction:column;gap:.75rem;min-height:0;justify-content:center; justify-content:safe center}
+.top{margin-bottom:.6rem;flex:0 0 auto}
+b.hl{color:var(--a)}
+em{font-style:normal;background:linear-gradient(transparent 58%, rgba(10,126,194,.22) 0);padding:0 .15em}
+code{font-family:'JetBrains Mono',monospace;background:rgba(20,35,66,.07);padding:.12em .42em;border-radius:.35rem;font-size:.92em;color:#0a5f92}
+.row{display:flex;gap:1.4rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem}
+.card{background:var(--card); border:1px solid var(--line);border-radius:1.1rem; padding:1.1rem 1.4rem;box-shadow:0 1px 2px rgba(20,35,66,.05), 0 6px 18px rgba(20,35,66,.06);}
+.card.acc{border-left:.32rem solid var(--a)}
+.card.acc-b{border-left:.32rem solid var(--b)}
+.card.acc-c{border-left:.32rem solid var(--c)}
+.card.acc-d{border-left:.32rem solid var(--d)}
+.card.acc-w{border-left:.32rem solid var(--warn)}
+.card h3{line-height:1.45}
+.card.pad-s{padding:.8rem 1.1rem}
+.tag{display:inline-block;font-size:1.275rem;font-weight:700;letter-spacing:.08em;padding:.22rem .7rem;border-radius:99px;border:1px solid var(--line);color:var(--dim)}
+.tag.a{color:var(--a);border-color:rgba(10,126,194,.4);background:rgba(10,126,194,.09)}
+.tag.b{color:var(--b);border-color:rgba(176,106,0,.4);background:rgba(176,106,0,.09)}
+.tag.c{color:var(--c);border-color:rgba(14,138,82,.4);background:rgba(14,138,82,.09)}
+.tag.d{color:var(--d);border-color:rgba(106,63,192,.4);background:rgba(106,63,192,.09)}
+.tag.w{color:var(--warn);border-color:rgba(200,50,74,.4);background:rgba(200,50,74,.09)}
+ul{padding-left:1.25rem} li{margin:.15rem 0}
+ul.clean{list-style:none;padding:0}
+ul.clean li{position:relative;padding-left:1.4rem}
+ul.clean li::before{content:'▸';position:absolute;left:0;color:var(--a)}
+table{border-collapse:collapse;width:100%;background:#fff;border-radius:.5rem;overflow:hidden}
+th,td{border:1px solid var(--line);padding:.45rem .8rem;text-align:left;vertical-align:top}
+th{background:rgba(20,35,66,.06);font-weight:700;font-size:1.62rem;color:var(--fg)}
+td{font-size:1.59rem}
+tr:nth-child(even) td{background:rgba(20,35,66,.022)}
+table.tight th,table.tight td{padding:.3rem .6rem;font-size:1.47rem;line-height:1.5}
+.num{width:3.2rem;text-align:center;color:var(--a);font-weight:800}
+.pill{width:3.5rem;height:3.5rem;flex:0 0 auto;border-radius:1rem;display:grid;place-items:center;font-weight:900;font-size:2.55rem;background:linear-gradient(140deg,rgba(10,126,194,.16),rgba(106,63,192,.14));border:1px solid var(--line);color:var(--a)}
+.fml{font-family:'JetBrains Mono',monospace;font-size:2.4rem;font-weight:700;text-align:center;padding:.8rem;background:#fff;border:1px solid var(--line);border-radius:.9rem;letter-spacing:.01em}
+.fml.sm{font-size:1.875rem;padding:.6rem}
+.fml small{display:block;font-family:'Noto Sans KR',sans-serif;font-size:.62em;font-weight:400;color:var(--dim);margin-top:.6rem;letter-spacing:0}
+.fml.deriv{text-align:left;line-height:1.45;padding-left:2rem}
+.fml.deriv.step:not(.in){display:none}
+.fml.deriv.step.in{animation:fade .3s ease;display:grid;grid-template-columns:max-content 1fr;column-gap:1.6rem;align-items:baseline}
+.pop-box .why,.fml.deriv .why{font-family:'Noto Sans KR',sans-serif;font-weight:400;font-size:.62em;color:var(--dim)}
+.pop{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(20,35,66,.35);cursor:pointer}
+.pop.open{display:flex;animation:fade .2s ease}
+.pop-box{background:#fff;border-radius:1rem;padding:1.4rem 1.8rem;max-width:92%;box-shadow:0 12px 40px rgba(20,35,66,.25)}
+.pop-box .why{white-space:nowrap}
+.pop-box .fml{display:grid;font-size:1.5rem;grid-template-columns:max-content 1fr;column-gap:1.6rem;align-items:baseline;text-align:left;line-height:1.5;margin:.6rem 0}
+.X{color:var(--a)} .Y{color:var(--c)} .P{color:var(--warn)} .H{color:var(--d)}
+.hat{position:relative;display:inline-block}
+.hat::before{content:"^";position:absolute;left:0;right:0;top:-.12em;text-align:center;font-size:.7em;line-height:1}
+.steps4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.st{background:#fff;border:1px solid var(--line);border-radius:1rem;padding:1.1rem 1.2rem;box-shadow:0 4px 14px rgba(20,35,66,.06);position:relative;overflow:hidden}
+.st::after{content:'';position:absolute;left:0;top:0;bottom:0;width:.3rem;background:var(--a)}
+.st.s2::after{background:var(--b)} .st.s3::after{background:var(--d)} .st.s4::after{background:var(--c)}
+.st .no{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:1.425rem;color:var(--dim);letter-spacing:.1em}
+.st h3{font-size:1.92rem;margin:.25rem 0 .45rem}
+.st p{font-size:1.53rem;line-height:1.45;color:var(--dim)}
+.demo{background:#fff;border:1px solid var(--line);border-radius:1rem;padding:1rem 1.2rem;box-shadow:0 4px 14px rgba(20,35,66,.06)}
+.ctl{display:flex;gap:1.3rem;align-items:center;flex-wrap:wrap}
+.ctl label{font-size:1.5rem;color:var(--dim);display:flex;align-items:center;gap:.6rem;font-weight:700}
+input[type=range]{width:11rem;accent-color:var(--a)}
+.val{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:1.725rem;color:var(--fg);min-width:3.4rem;display:inline-block;text-align:right}
+canvas{display:block;width:auto;height:auto;max-width:100%;max-height:32vh;margin:0 auto;border-radius:.6rem}
+.stat{display:flex;flex-direction:column;line-height:1.25}
+.stat .k{font-size:1.23rem;color:var(--dim);letter-spacing:.06em}
+.stat .v{font-size:2.4rem;font-weight:900;font-family:'JetBrains Mono',monospace}
+.statrow{display:flex;gap:1.6rem;align-items:center;flex-wrap:wrap}
+.btn{background:rgba(10,126,194,.10);border:1px solid rgba(10,126,194,.45);color:var(--a);font-family:inherit;font-weight:700;font-size:1.53rem;padding:.55rem 1.2rem;border-radius:.6rem;cursor:pointer;transition:.15s}
+.btn:hover{background:rgba(10,126,194,.2)}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--dim)}
+.ans{display:none;margin-top:.9rem}
+.ans.show{display:block}
+.hud{position:fixed;right:1.6rem;bottom:1.1rem;display:flex;gap:.9rem;align-items:center;font-size:.95rem;color:var(--dim);z-index:10}
+.hud button{background:#fff;border:1px solid var(--line);color:var(--dim);width:2.1rem;height:2.1rem;border-radius:.5rem;cursor:pointer;font-size:1rem}
+.bar{position:fixed;left:0;bottom:0;height:.28rem;background:linear-gradient(90deg,var(--a),var(--d));z-index:11;transition:width .25s}
+.brand{position:fixed;left:1.8rem;bottom:1.2rem;font-size:.9rem;color:rgba(20,35,66,.3);z-index:10}
+.note{font-size:1.5rem;color:var(--dim)}
+.center{align-items:center;text-align:center;justify-content:center}
+.step{opacity:0;transform:translateY(.7rem);transition:opacity .35s ease, transform .35s ease}
+.step.in{opacity:1;transform:none}
+.slide.dense{padding-bottom:2.8rem}
+.slide.dense .body{gap:.75rem}
+.slide.dense h2{font-size:3.375rem}
+.slide.dense .top{margin-bottom:.6rem}
+.tip{background:rgba(10,126,194,.06);border:1px solid rgba(10,126,194,.28);border-radius:.9rem;padding:1rem 1.25rem}
+.tip h3{color:var(--a)}
+.warnbox{background:rgba(200,50,74,.055);border:1px solid rgba(200,50,74,.3);border-radius:.9rem;padding:1rem 1.25rem}
+.warnbox h3{color:var(--warn)}
+.split{display:flex;height:3.2rem;border-radius:.6rem;overflow:hidden;border:1px solid var(--line)}
+.split div{display:grid;place-items:center;font-weight:800;font-size:1.5rem;color:#fff}
+.split .tr{background:var(--a)} .split .va{background:var(--b)} .split .te{background:var(--warn)}
+.cv{display:grid;gap:.42rem}
+.cvrow{display:grid;grid-template-columns:4.2rem repeat(5,1fr);gap:.42rem;align-items:center}
+.cvrow .lb{font-size:1.38rem;color:var(--dim);font-weight:700}
+.cvcell{height:1.7rem;border-radius:.34rem;background:rgba(10,126,194,.17);display:grid;place-items:center;font-size:1.2rem;color:var(--a);font-weight:700}
+.cvcell.te{background:rgba(200,50,74,.85);color:#fff}
+.colvec{display:inline-flex;flex-direction:column;vertical-align:middle;line-height:1.3;margin:0 .35rem;padding:.15rem .6rem;border-left:2px solid var(--fg);border-right:2px solid var(--fg);background:linear-gradient(var(--fg),var(--fg)) left top/.45rem 2px no-repeat,linear-gradient(var(--fg),var(--fg)) left bottom/.45rem 2px no-repeat,linear-gradient(var(--fg),var(--fg)) right top/.45rem 2px no-repeat,linear-gradient(var(--fg),var(--fg)) right bottom/.45rem 2px no-repeat}
+.vote{display:grid;grid-template-columns:4.6rem 1fr 3.4rem;gap:.5rem;align-items:center;margin:.35rem 0}
+.vote .nm{font-size:1.5rem;font-weight:700}
+.vote .tr{height:1.15rem;border-radius:.3rem;background:rgba(20,35,66,.07);overflow:hidden}
+.vote .tr div{height:100%;width:0;transition:width .2s}
+.vote .fr{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:1.5rem;text-align:right}
+.algo{list-style:none;padding:0;counter-reset:ag}
+.algo li{counter-increment:ag;display:flex;gap:.85rem;align-items:flex-start;margin:.5rem 0}
+.algo li::before{content:counter(ag);flex:0 0 auto;width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;font-size:1.23rem;font-weight:800;background:rgba(10,126,194,.12);color:var(--a);margin-top:.12rem}
+.algo .t{font-size:1.59rem;line-height:1.6}
+.algo .t small{display:block;font-size:1.35rem;color:var(--dim);margin-top:.1rem}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- 1. 표지 -->
+<section class="slide center">
+  <div class="body center">
+    <div class="kicker">인공지능 일반 · 5차시</div>
+    <h1>지도 학습,<br><span style="color:var(--a)">네 단계로 정리하기</span></h1>
+    <div class="hr" style="width:24rem"></div>
+    <p class="sub" style="font-size:2.1rem">모델의 형태 · 목표 · 학습 · 평가</p>
+  </div>
+</section>
+
+<!-- 2. 데이터 드리븐이란 -->
+<section class="slide">
+  <div class="top"><div class="kicker">머신러닝은 데이터 드리븐이다</div><h2>데이터 드리븐(data-driven)이란?</h2>
+    <p class="sub">규칙을 사람이 직접 짜 넣지 않고, <b style="color:var(--a)">데이터에서 규칙을 찾게</b> 하는 방식입니다.</p></div>
+  <div class="body">
+    <div class="grid2">
+      <div class="card acc-w">
+        <span class="tag w">RULE-BASED</span>
+        <h3 style="margin-top:.6rem">전통적인 프로그래밍</h3>
+        <div class="fml sm" style="margin:.7rem 0;font-size:1.59rem">입력 + 사람이 만든 규칙 → 출력</div>
+        <p class="note">개발자가 규칙을 <code>if</code>문으로 하나씩 씁니다.<br>예) 제목에 ‘무료’가 있으면 스팸</p>
+      </div>
+      <div class="card acc">
+        <span class="tag a">DATA-DRIVEN</span>
+        <h3 style="margin-top:.6rem">머신러닝</h3>
+        <div class="fml sm" style="margin:.7rem 0;font-size:1.59rem">입력 + 정답 → 학습 → 규칙(모델)</div>
+        <p class="note">사람은 규칙 대신 <b>예시 데이터와 정답</b>을 줍니다.<br>예) ‘스팸’·‘정상’이 표시된 메일 수만 통을 주면 배웁니다.</p>
+      </div>
+    </div>
+    <div class="grid4 step" style="gap:1rem">
+      <div class="card pad-s"><h3>데이터가 중요</h3><p class="note">알고리즘이 같아도 데이터의 양과 질에 따라 결과가 크게 달라집니다.</p></div>
+      <div class="card pad-s"><h3>말로 못 쓰는 규칙</h3><p class="note">고양이를 알아보는 규칙은 코드로 쓰기 어렵지만, 사진으로 배울 수 있습니다.</p></div>
+      <div class="card pad-s"><h3>다시 학습</h3><p class="note">스팸 수법이 바뀌면 규칙을 새로 짜는 대신 새 데이터로 다시 학습시킵니다.</p></div>
+      <div class="card pad-s"><h3>편향도 배운다</h3><p class="note">데이터가 한쪽으로 치우쳐 있으면 모델도 치우친 판단을 합니다.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. 4단계 프레임워크 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">핵심 정리</div><h2>지도 학습 프레임워크 — 네 단계</h2>
+    <p class="sub">지도 학습은 <b style="color:var(--a)">정답이 붙은 데이터</b>로 배웁니다. 사람은 <b>형태와 목표</b>만 정하고, <b>값(파라미터)은 데이터로</b> 정합니다.</p></div>
+  <div class="body">
+    <div class="steps4">
+      <div class="st">
+        <div class="no">STEP 1</div><h3>모델의 형태를 정한다</h3>
+        <p>입력과 출력의 관계를 어떤 <b>수식 모양</b>으로 볼지 정합니다. 예) <span class="H hat">f</span>(<span class="X">x</span>) = <span class="P">a</span><span class="X">x</span></p>
+      </div>
+      <div class="st s2">
+        <div class="no">STEP 2</div><h3>목표를 정의한다</h3>
+        <p>모델이 잘했는지 판단할 <b>채점 기준을 수식으로</b> 씁니다. 예) <span class="Y">y</span> ≈ <span class="H hat">f</span>(<span class="X">x</span>)가 되도록</p>
+      </div>
+      <div class="st s3">
+        <div class="no">STEP 3</div><h3>학습(최적화)</h3>
+        <p><b>훈련 데이터</b> {(<span class="X">xᵢ</span>, <span class="Y">yᵢ</span>)}로 목표를 가장 잘 달성하는 <span class="P">a</span>를 찾습니다.</p>
+      </div>
+      <div class="st s4">
+        <div class="no">STEP 4</div><h3>예측(추론)</h3>
+        <p>처음 보는 <span class="X">x</span>에 대해 <span class="H">ŷ</span> = <span class="P">a</span><span class="X">x</span>를 계산해 라벨을 추정합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. 표기법 약속 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">핵심 정리</div><h2>표기법 약속</h2>
+    <p class="sub">앞으로 모든 슬라이드에서 같은 기호와 같은 색을 씁니다.</p></div>
+  <div class="body">
+    <div class="grid2" style="gap:1.2rem">
+      <div class="demo"><canvas id="cv-fw" width="820" height="400"></canvas></div>
+      <div class="card acc-d">
+        <h3>기호와 뜻 (머신러닝의 관례)</h3>
+        <table class="tight">
+          <tr><th style="width:6.5rem">기호</th><th>뜻</th></tr>
+          <tr><td><b class="X">x</b></td><td><b>데이터</b> · 입력 · 특징(feature). 관측해서 얻은 값</td></tr>
+          <tr><td><b class="Y">y</b></td><td><b>정답</b> · 라벨(label). 모델이 맞혀야 하는 값</td></tr>
+          <tr><td><b class="P">a</b>, <b class="P">β</b></td><td><b>파라미터(parameter)</b>. 모델 속에서 <b>배워야 하는 값</b></td></tr>
+          <tr><td><b class="H">ŷ</b></td><td>모델의 예측값 (“와이 햇”)</td></tr>
+          <tr><td><b>n</b></td><td>훈련 데이터 개수</td></tr>
+        </table>
+        <p class="note" style="margin-top:.6rem">슬라이드에서는 항상 같은 색으로 씁니다. <b class="X">파랑=데이터</b>, <b class="Y">초록=정답</b>, <b class="P">빨강=파라미터</b>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. 광고비 예제 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">예제 · <span style="color:var(--a)">회귀(REGRESSION)</span></div>
+    <h2>광고비를 얼마나 쓰면 매출이 얼마나 오를까</h2></div>
+  <div class="body">
+    <div class="grid2">
+      <div class="card acc">
+        <h3>데이터 (200개 지역의 기록)</h3>
+        <table class="tight">
+          <tr><th>지역</th><th class="X">TV</th><th class="X">라디오</th><th class="X">신문</th><th class="Y">매출</th></tr>
+          <tr><td>1</td><td>230.1</td><td>37.8</td><td>69.2</td><td><b>22.1</b></td></tr>
+          <tr><td>2</td><td>44.5</td><td>39.3</td><td>45.1</td><td><b>10.4</b></td></tr>
+          <tr><td>3</td><td>17.2</td><td>45.9</td><td>69.3</td><td><b>9.3</b></td></tr>
+          <tr><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td></tr>
+        </table>
+      </div>
+      <div class="card acc-c">
+        <h3>용어</h3>
+        <ul class="clean">
+          <li><b class="Y">y</b> (매출) = <b>Response</b>, Target, 종속변수</li>
+          <li><b class="X">x</b> (광고비) = <b>Feature</b>, Input, Predictor, 독립변수</li>
+          <li>둘을 잇는 함수 <b class="H">f</b> = <b>회귀 함수(regression function)</b></li>
+        </ul>
+        <div class="hr"></div>
+        <div class="fml sm">
+          <span class="Y">y</span> = <span class="H">f</span>(<span class="X">x</span>) + ε
+          <small>ε(입실론) = <b>오차</b>. 실제 데이터는 수식과 정확히 맞지 않습니다.</small>
+        </div>
+      </div>
+    </div>
+    <div class="card acc-d step pad-s">
+      <p>같은 광고비를 써도 매출은 매번 다릅니다 → 정답 <span class="Y">y</span>는 하나의 값이 아니라 <b>분포</b>를 갖습니다. 그래서 모델은 보통 그 <em>분포의 평균(기대값)</em>을 맞히도록 설계합니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6. 기호 정리 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">기호로 정리</div>
+    <h2>광고비 예제를 기호로 쓰면</h2>
+    <p class="sub">앞으로 계속 쓰는 용어와 기호입니다.</p></div>
+  <div class="body">
+    <div class="grid2">
+      <div class="card acc">
+        <h3>변수에 이름 붙이기</h3>
+        <table class="tight">
+          <tr><th>데이터의 열</th><th style="width:5rem">기호</th><th>부르는 말</th></tr>
+          <tr><td><b>매출</b></td><td><b class="Y">y</b></td><td><b>response</b>, <b>target</b>. 예측하려는 값</td></tr>
+          <tr><td><b>TV</b></td><td><b class="X">x₁</b></td><td rowspan="3"><b>feature</b>, <b>input</b>, <b>predictor</b></td></tr>
+          <tr><td><b>라디오</b></td><td><b class="X">x₂</b></td></tr>
+          <tr><td><b>신문</b></td><td><b class="X">x₃</b></td></tr>
+        </table>
+      </div>
+      <div class="card acc-c">
+        <h3>하나로 묶어 쓰기</h3>
+        <p class="note">입력 세 개를 묶어 <b>입력 벡터</b> 하나로 부릅니다.</p>
+        <div class="fml sm" style="margin:.6rem 0 .9rem">
+          <span class="X">x</span> =<span class="colvec"><span class="X">x₁</span><span class="X">x₂</span><span class="X">x₃</span></span>∈ ℝ³
+        </div>
+        <div class="fml sm" style="margin-top:.6rem">
+          <span class="Y">y</span> = <span class="H">f</span>(<span class="X">x</span>) + ε
+        </div>
+      </div>
+    </div>
+    <div class="card acc-d step pad-s">
+      <p class="note"><b>ε</b>은 측정 오차와 그 밖의 어긋남을 모두 담는 항이고, <span class="X">x</span>와 <b>독립</b>이라고 가정합니다. 또 <b>ε의 평균은 0</b>이라고 가정합니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7. STEP 1 -->
+<section class="slide">
+  <div class="top"><span class="tag w">STEP 1</span><h2 style="margin-top:.6rem">모델의 형태를 정한다</h2>
+    <p class="sub">머신러닝 전체에서 <b>사람의 판단이 가장 많이 들어가는 단계</b>입니다.</p></div>
+  <div class="body">
+    <div class="grid2">
+      <div class="card acc">
+        <span class="tag a">PARAMETRIC</span>
+        <h3 style="margin-top:.6rem">파라메트릭 모델</h3>
+        <p>함수의 <b>모양을 먼저 가정</b>하고, 그 안의 계수만 데이터에서 찾습니다.</p>
+        <div class="fml sm" style="margin:.7rem 0">
+          <span class="Y">y</span> = <span class="P">β₀</span> + <span class="P">β₁</span><span class="X">x₁</span> + <span class="P">β₂</span><span class="X">x₂</span> + <span class="P">β₃</span><span class="X">x₃</span>
+        </div>
+        <p class="note">찾을 숫자는 데이터 양과 상관없이 <b>4개</b>입니다. <b>선형회귀와 딥러닝</b>이 해당합니다.</p>
+      </div>
+      <div class="card acc-b">
+        <span class="tag b">NON-PARAMETRIC</span>
+        <h3 style="margin-top:.6rem">넌파라메트릭 모델</h3>
+        <p>함수 모양을 <b>가정하지 않습니다</b>. 비슷한 데이터의 값으로 답을 정합니다.</p>
+        <div class="fml sm" style="margin:.7rem 0;font-size:1.59rem">
+          <span class="H">ŷ</span> = 가까운 <b>K개</b> 이웃의 <b style="color:var(--a)">평균</b>
+        </div>
+        <p class="note">유연하지만 데이터가 많이 필요하고 데이터를 다 들고 다녀야 합니다. (예: <b>K-NN 회귀</b>)</p>
+      </div>
+    </div>
+    <div class="card acc-c step pad-s">
+      <h3>그래도 직선 모델부터 쓰는 이유</h3>
+      <p class="note">① <b>해석이 쉽습니다</b> ② 데이터가 적어도 <b>안정적</b>입니다 ③ 좁은 범위에서는 대부분 <b>직선에 가깝습니다</b></p>
+    </div>
+  </div>
+</section>
+
+<!-- 8. 진짜 f vs 학습한 f̂ -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">STEP 1 · 모델링의 목표</div>
+    <h2><span style="color:var(--a)">진짜 f</span>를 <span style="color:var(--b)">평면 하나</span>로 근사하기</h2>
+    <p class="sub">학력(education)과 연차(seniority)로 <b>소득(income)</b>을 예측하는 문제입니다.</p></div>
+  <div class="body">
+    <div class="demo"><canvas id="cv-surf" width="1280" height="236" style="max-height:24vh"></canvas></div>
+    <div class="grid3">
+      <div class="card acc pad-s"><span class="tag a">파란 면</span>
+        <p class="note" style="margin-top:.5rem">세상의 <b>진짜 관계 f</b>. 존재하지만 우리는 직접 볼 수 없습니다.</p></div>
+      <div class="card acc-w pad-s"><span class="tag w">빨간 점</span>
+        <p class="note" style="margin-top:.5rem">우리가 가진 <b>데이터</b>. 진짜 f 위에 <b>오차 ε</b>가 얹혀 흩어져 있습니다.</p></div>
+      <div class="card acc-b pad-s"><span class="tag b">노란 면</span>
+        <p class="note" style="margin-top:.5rem">점들로부터 학습한 <b>선형회귀 모델 f̂</b> — 평평한 <b>평면</b>입니다.</p></div>
+    </div>
+    <div class="fml sm step">
+      <span class="H">f̂</span>(education, seniority) = <span class="P">β₀</span> + <span class="P">β₁</span>×education + <span class="P">β₂</span>×seniority
+      <small>“<b>평면</b>”이라 가정했으니, <b>승진 구간의 급격한 점프</b>는 데이터를 100만 개 모아도 표현할 수 없습니다. 이것을 <b>편향(bias)</b>이라 합니다.</small>
+    </div>
+  </div>
+</section>
+
+<!-- 9. 편향과 분산 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">STEP 1 보충</div>
+    <h2><span style="color:var(--warn)">편향(bias)</span>과 <span style="color:var(--d)">분산(variance)</span></h2>
+    <p class="sub">데이터를 <b>20번 새로 뽑아</b> 각각 학습했습니다. 옅은 선은 각 결과, 진한 선은 평균, 점선은 진짜 f입니다.</p></div>
+  <div class="body">
+    <div class="demo" style="position:relative">
+      <canvas id="cv-bv" width="1240" height="270" style="max-height:22vh"></canvas>
+      <button class="btn ghost" id="bv-new" style="position:absolute;right:1.2rem;bottom:1rem">데이터 다시 뽑기</button>
+    </div>
+    <div class="grid2">
+      <div class="card acc-w pad-s"><span class="tag w">편향 (bias)</span>
+        <p class="note" style="margin-top:.5rem">모델의 <b>평균</b>이 진짜 f에서 벗어난 정도입니다. 가정한 모양이 틀려서 생기므로 데이터를 모아도 줄지 않습니다.</p></div>
+      <div class="card acc-d pad-s"><span class="tag d">분산 (variance)</span>
+        <p class="note" style="margin-top:.5rem">훈련 데이터가 다르게 뽑혔다면 모델이 얼마나 달라졌을지입니다. 모델이 유연할수록 커집니다.</p></div>
+    </div>
+    <div class="card acc-c step pad-s">
+      <p class="note"><b>둘을 함께 줄이기는 어렵습니다.</b> 이것을 <b>편향-분산 트레이드오프</b>라고 합니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10. 같은 데이터, 다른 가정 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">STEP 1 예시</div><h2>같은 데이터, 다른 가정 → 다른 모델</h2>
+    <p class="sub">데이터는 <b>똑같습니다</b>. 사람이 STEP 1에서 무엇을 가정했는지만 다릅니다.</p></div>
+  <div class="body">
+    <div class="demo"><canvas id="cv-three" width="1240" height="264" style="max-height:22vh"></canvas></div>
+    <div class="grid3">
+      <div class="card acc pad-s"><span class="tag a">직선 가정</span><p class="note" style="margin-top:.5rem">파라미터 2개. 안정적이고 해석이 쉽습니다.</p></div>
+      <div class="card acc-d pad-s"><span class="tag d">4차 곡선 가정</span><p class="note" style="margin-top:.5rem">파라미터 5개. 굽은 관계도 잡지만 과적합 위험이 있습니다.</p></div>
+      <div class="card acc-b pad-s"><span class="tag b">K-NN 회귀</span><p class="note" style="margin-top:.5rem">수식이 없고 가장 가까운 점의 값을 써서 계단 모양이 됩니다.</p></div>
+    </div>
+    <div class="card acc-c step pad-s">
+      <p class="note"><b>정답은 없습니다.</b> 문제의 성격과 데이터 양에 따라 사람이 고릅니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11. STEP 2 : MSE -->
+<section class="slide dense">
+  <div class="top"><span class="tag w">STEP 2</span><h2 style="margin-top:.5rem">목표를 수식으로 — 평균 제곱 오차(MSE)</h2>
+    <p class="sub">예측이 <b>y에 얼마나 가까운지</b> 계산하려면 <b>숫자로 채점</b>하는 기준이 필요합니다.</p></div>
+  <div class="body">
+    <div class="fml">
+      MSE = <span style="font-size:.8em">(1/n)</span> Σᵢ ( <span class="Y">yᵢ</span> − <span class="H">f̂</span>(<span class="X">xᵢ</span>) )²
+      <small><b>(정답 − 예측)의 제곱</b>을 평균낸 값입니다. 작을수록 좋습니다.</small>
+    </div>
+    <div class="grid2" style="gap:1.2rem;grid-template-columns:1.25fr 1fr">
+      <div class="demo">
+        <canvas id="cv-fit" width="860" height="364" style="max-height:28vh"></canvas>
+        <div class="ctl" style="margin-top:.7rem">
+          <label>기울기 <span class="P">a</span>
+            <input type="range" id="fit-a" min="-1" max="5" step="0.05" value="0.6">
+            <span class="val" id="fit-av">0.60</span></label>
+          <label>절편 <span class="P">b</span>
+            <input type="range" id="fit-b" min="-6" max="6" step="0.1" value="0">
+            <span class="val" id="fit-bv">0.0</span></label>
+          <button class="btn" id="fit-best">최적선 보기</button>
+        </div>
+      </div>
+      <div class="card acc-d">
+        <h3>직접 채점해 보세요</h3>
+        <p class="note">빨간 막대가 <b>오차(residual)</b>입니다.</p>
+        <div class="statrow" style="margin:1rem 0">
+          <div class="stat"><span class="k">현재 MSE</span><span class="v" id="fit-mse" style="color:var(--warn)">—</span></div>
+          <div class="stat"><span class="k">최소 가능 MSE</span><span class="v" id="fit-opt" style="color:var(--c)">—</span></div>
+        </div>
+        <div class="hr"></div>
+        <p>슬라이더를 돌려 MSE를 줄인 것이 <b>STEP 3(학습)</b>입니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12. MSE 손계산 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">손 계산</div><h2>MSE를 직접 계산해 봅시다</h2>
+    <p class="sub">모델은 <b class="H">ŷ = 2x</b>로 고정합니다. 4개 데이터에 대한 MSE를 구해 보세요.</p></div>
+  <div class="body">
+    <div class="grid2" style="grid-template-columns:1.1fr 1fr">
+      <div class="card acc">
+        <table class="tight">
+          <tr><th class="X">x</th><th class="Y">y (정답)</th><th class="H">ŷ = 2x</th><th>오차</th><th>오차²</th></tr>
+          <tr><td>1</td><td>3</td><td class="q1">?</td><td class="q1">?</td><td class="q1">?</td></tr>
+          <tr><td>2</td><td>5</td><td class="q1">?</td><td class="q1">?</td><td class="q1">?</td></tr>
+          <tr><td>3</td><td>4</td><td class="q1">?</td><td class="q1">?</td><td class="q1">?</td></tr>
+          <tr><td>4</td><td>8</td><td class="q1">?</td><td class="q1">?</td><td class="q1">?</td></tr>
+        </table>
+        <button class="btn" id="mse-btn" style="margin-top:.9rem">채워보기 / 정답</button>
+      </div>
+      <div class="card acc-d">
+        <h3>생각해 볼 것</h3>
+        <ul class="clean">
+          <li>오차를 제곱하므로 <b>이상치(outlier)가 하나만 있어도 모델이 크게 영향</b>을 받습니다.</li>
+        </ul>
+        <div class="ans" id="mse-ans">
+          <div class="hr"></div>
+          <div class="fml sm">MSE = (1 + 1 + 4 + 0) / 4 = <b style="color:var(--c)">1.5</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 13. 오차의 분해 -->
+<section class="slide">
+  <div class="top"><div class="kicker">STEP 2 보충</div><h2>줄일 수 있는 오차와 줄일 수 없는 오차</h2></div>
+  <div class="body">
+    <div class="fml sm">
+      E[(<span class="Y">y</span> − <span class="H">ŷ</span>)²] &nbsp;=&nbsp;
+      <span style="color:var(--a)">( f(x) − ŷ )²</span> &nbsp;+&nbsp; <span style="color:var(--warn)">Var(ε)</span>
+      <small><span style="color:var(--a)"><b>Reducible</b> 줄일 수 있는 오차</span> &nbsp;·&nbsp;
+        <span style="color:var(--warn)"><b>Irreducible</b> 줄일 수 없는 오차</span></small>
+    </div>
+    <div class="fml sm deriv step">
+      <div>y − ŷ = ( f(x) − ŷ ) + ε</div><span class="why">← y = f(x) + ε 대입</span>
+      <div>(y − ŷ)² = ( f(x) − ŷ )² + 2( f(x) − ŷ )ε + ε²</div><span class="why">← 제곱 전개</span>
+      <div>E[(y − ŷ)²] = ( f(x) − ŷ )² + 2( f(x) − ŷ )·E[ε] + E[ε²]</div><span class="why">← 양쪽에 평균</span>
+      <div><span style="visibility:hidden">E[(y − ŷ)²]</span> = <span style="color:var(--a)">( f(x) − ŷ )²</span> + 0 + <span style="color:var(--warn)">Var(ε)</span></div><span class="why">← 최종 정리</span>
+    </div>
+    <div class="grid2">
+      <div class="card acc">
+        <h3>줄일 수 있는 오차</h3>
+        <p>더 좋은 모델, 더 많은 데이터로 줄일 수 있습니다.</p>
+      </div>
+      <div class="card acc-w">
+        <h3>줄일 수 없는 오차</h3>
+        <p>세상 자체의 무작위성 때문에 어떤 모델로도 맞힐 수 없습니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 14. STEP 3 최적화 -->
+<section class="slide">
+  <div class="top"><span class="tag w">STEP 3</span><h2 style="margin-top:.6rem">학습 = 최적화(Optimization)</h2>
+    <p class="sub">채점 기준을 <b>가장 잘 만족하는 파라미터</b>를 찾는 과정입니다.</p></div>
+  <div class="body">
+    <div class="grid2">
+      <div class="card acc">
+        <h3>① 식을 풀어서 구하기 (closed-form)</h3>
+        <p>식을 풀어 한 번에 최적 파라미터를 구합니다. (선형회귀 등)</p>
+      </div>
+      <div class="card acc-d">
+        <h3>② 조금씩 찾아가기 (경사하강법)</h3>
+        <p>오차가 줄어드는 방향으로 조금씩 이동합니다. 딥러닝이 이 방식으로 학습합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 15. STEP 4 예측 -->
+<section class="slide">
+  <div class="top"><span class="tag w">STEP 4</span><h2 style="margin-top:.6rem">예측하고 성능 평가하기</h2></div>
+  <div class="body">
+    <div class="card acc pad-s">
+      <p style="font-size:1.92rem">학습이 끝나면 처음 보는 <span class="X">x</span>에 대해 <span class="H">ŷ</span> = <span class="P">a</span><span class="X">x</span>를 계산합니다 (추론).</p>
+    </div>
+    <div class="grid2">
+      <div class="card acc-w">
+        <h3>잘못된 방법: 훈련 데이터로 채점하기</h3>
+        <p>시험 문제를 미리 보고 친 시험과 같습니다. 점수가 부풀려집니다.</p>
+      </div>
+      <div class="card acc-c">
+        <h3>올바른 방법: 테스트 데이터로 채점하기</h3>
+        <p>학습 중에 보여주지 않은 처음 보는 문제를 푸는 실력(일반화)을 평가합니다.</p>
+      </div>
+    </div>
+    <div class="fml sm step">
+      전체 데이터 &nbsp;→&nbsp; <span style="color:var(--a)">훈련 80%</span> &nbsp;+&nbsp; <span style="color:var(--c)">테스트 20%</span>
+    </div>
+  </div>
+</section>
+
+<!-- 16. 과적합 인터랙티브 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">직접 보기</div><h2>모델이 복잡할수록 좋을까? 과적합(Overfitting)</h2>
+    <p class="sub">슬라이더로 다항식 차수를 올려보세요.</p></div>
+  <div class="body">
+    <div class="grid2" style="gap:1.2rem;grid-template-columns:1.3fr 1fr">
+      <div class="demo">
+        <canvas id="cv-of" width="880" height="420"></canvas>
+        <div class="ctl" style="margin-top:.7rem">
+          <label>다항식 차수
+            <input type="range" id="of-d" min="1" max="12" step="1" value="1">
+            <span class="val" id="of-dv">1</span></label>
+          <button class="btn ghost" id="of-new">데이터 새로 뽑기</button>
+        </div>
+      </div>
+      <div class="card acc-d">
+        <div class="statrow" style="margin-bottom:.9rem">
+          <div class="stat"><span class="k">훈련 오차</span><span class="v" id="of-tr" style="color:var(--a)">—</span></div>
+          <div class="stat"><span class="k">테스트 오차</span><span class="v" id="of-te" style="color:var(--warn)">—</span></div>
+        </div>
+        <canvas id="cv-ofc" width="520" height="290" style="max-height:24vh"></canvas>
+      </div>
+    </div>
+    <div class="card acc-w step pad-s">
+      <p><b>과적합</b> = 데이터의 잡음까지 외워버려 새 데이터에서 성능이 떨어지는 현상입니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 17. 과소/적정/과적합 -->
+<section class="slide dense">
+  <div class="top"><h2>과소적합 · 적정 · 과적합</h2></div>
+  <div class="body">
+    <div class="grid3">
+      <div class="card acc-b"><span class="tag b">UNDERFITTING</span>
+        <h3 style="margin-top:.6rem">과소적합</h3><p class="note">훈련·테스트 오차 모두 높음</p></div>
+      <div class="card acc-c"><span class="tag c">JUST RIGHT</span>
+        <h3 style="margin-top:.6rem">적정</h3><p class="note">일반적 경향을 잘 파악함 (목표)</p></div>
+      <div class="card acc-w"><span class="tag w">OVERFITTING</span>
+        <h3 style="margin-top:.6rem">과적합</h3><p class="note">훈련 오차 낮음, 테스트 오차 높음</p></div>
+    </div>
+    <div class="tip step pad-s">
+      <h3>하이퍼파라미터</h3>
+      <p class="note">차수처럼 학습 전에 사람이 정하는 값을 <b style="color:var(--b)">하이퍼파라미터</b>라고 합니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 18. 무엇으로 고르나 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">모델 복잡도 정하기</div>
+    <h2>테스트 오차가 가장 낮은 차수를 고르면 되지 않나요?</h2></div>
+  <div class="body">
+    <div class="grid3">
+      <div class="card acc"><span class="tag a">① 훈련 오차</span><p class="note" style="margin-top:.5rem">차수가 높을수록 무조건 내려가므로 기준이 될 수 없음</p></div>
+      <div class="card acc-w"><span class="tag w">② 테스트 오차</span><p class="note" style="margin-top:.5rem">시험 문제를 보고 공부법을 고르는 꼴</p></div>
+      <div class="card acc-c"><span class="tag c">③ 검증 데이터</span><p class="note" style="margin-top:.5rem">하이퍼파라미터를 고르는 용도로 따로 떼어둔 데이터</p></div>
+    </div>
+    <div class="warnbox step pad-s">
+      <h3>고르는 데이터와 채점하는 데이터는 달라야 합니다</h3>
+    </div>
+  </div>
+</section>
+
+<!-- 19. 훈련·검증·시험 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker"><span style="color:var(--warn)">핵심 정리</span></div>
+    <h2>문제집 · 모의고사 · 수능</h2></div>
+  <div class="body">
+    <div class="split">
+      <div class="tr" style="flex:7">훈련 데이터 · 70%</div>
+      <div class="va" style="flex:1.5">검증 · 15%</div>
+      <div class="te" style="flex:1.5">시험 · 15%</div>
+    </div>
+    <div class="grid3">
+      <div class="card acc"><span class="tag a">훈련 데이터</span><p style="margin-top:.5rem">파라미터를 학습하는 데 사용</p></div>
+      <div class="card acc-b"><span class="tag b">검증 데이터</span><p style="margin-top:.5rem">하이퍼파라미터 선택에 사용</p></div>
+      <div class="card acc-w"><span class="tag w">시험 데이터</span><p style="margin-top:.5rem">최종 성능 보고용, 단 1회</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 20. 교차검증 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">검증 방법</div><h2>교차검증: 나누는 위치를 돌려 가며</h2></div>
+  <div class="body">
+    <div class="grid2" style="grid-template-columns:1.15fr 1fr">
+      <div class="card acc">
+        <h3>5겹 교차검증</h3>
+        <div class="cv" style="margin-top:.7rem">
+          <div class="cvrow"><span class="lb">1회차</span><div class="cvcell te">검증</div><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell">학습</div></div>
+          <div class="cvrow"><span class="lb">2회차</span><div class="cvcell">학습</div><div class="cvcell te">검증</div><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell">학습</div></div>
+          <div class="cvrow"><span class="lb">3회차</span><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell te">검증</div><div class="cvcell">학습</div><div class="cvcell">학습</div></div>
+          <div class="cvrow"><span class="lb">4회차</span><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell te">검증</div><div class="cvcell">학습</div></div>
+          <div class="cvrow"><span class="lb">5회차</span><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell">학습</div><div class="cvcell te">검증</div></div>
+        </div>
+      </div>
+      <div class="card acc-d">
+        <h3>왜 이렇게 하나</h3>
+        <p class="note">어떻게 나눴는지에 따른 차이를 줄여주며 특히 데이터가 적을 때 유용합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 21. 전체 절차 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">실제 진행 순서</div><h2>학습부터 보고까지, 순서대로</h2></div>
+  <div class="body">
+    <div class="card acc">
+      <ol class="algo">
+        <li><span class="t"><b>데이터를 나눈다</b> — 시험 데이터를 먼저 떼어 따로 보관한다</span></li>
+        <li><span class="t"><b>훈련 데이터로 학습</b>한다 — 후보 모델들을 각각 학습</span></li>
+        <li><span class="t"><b>검증 데이터로 고른다</b> — 가장 좋은 하이퍼파라미터 선택</span></li>
+        <li><span class="t"><b>(선택) 다시 학습</b> — 훈련+검증 데이터를 합쳐서 재학습</span></li>
+        <li><span class="t"><b>시험 데이터로 딱 한 번</b> 성능을 측정해 최종 보고한다</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- 22. 최종 모델 고르기 -->
+<section class="slide">
+  <div class="top"><div class="kicker">실제 진행 순서</div><h2>검증 오차가 비슷하다면</h2></div>
+  <div class="body">
+    <div class="grid2" style="grid-template-columns:2fr 1fr">
+      <div class="card acc">
+        <h3>함께 고려할 기준</h3>
+        <ul class="clean">
+          <li><b>해석 가능성</b> — 예측 이유를 설명해야 하는 분야(의료, 금융)</li>
+          <li><b>단순함</b> — 성능이 같다면 더 단순한 모델을 고른다</li>
+          <li><b>비용</b> — 학습 및 서빙에 소요되는 시간과 자원</li>
+        </ul>
+      </div>
+      <div class="card acc-d">
+        <h3>설명력의 가치</h3>
+        <p class="note">대출 심사처럼 결격 사유를 설명해야 한다면 단순한 모델이 우선됩니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 23. 절차의 규칙 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">실제 진행 순서</div><h2>시험 데이터는 마지막에 한 번만 씁니다</h2></div>
+  <div class="body">
+    <div class="grid2">
+      <div class="warnbox pad-s">
+        <h3>절대 하면 안 되는 것</h3>
+        <p class="note">시험 결과를 보고 모델을 수정하러 되돌아가는 것.</p>
+      </div>
+      <div class="tip pad-s">
+        <h3>역할 정리</h3>
+        <p class="note"><b class="P">파라미터</b> — 훈련 데이터<br><b style="color:var(--b)">하이퍼파라미터</b> — 검증 데이터<br><b>최종 성능</b> — 시험 데이터 단 1회</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 24. 분류 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">또 하나의 큰 축 · <span style="color:var(--b)">분류(CLASSIFICATION)</span></div>
+    <h2>회귀는 주관식, 분류는 객관식</h2></div>
+  <div class="body">
+    <div class="grid2">
+      <div class="card acc">
+        <span class="tag a">REGRESSION</span>
+        <h3 style="margin-top:.6rem">회귀</h3>
+        <p>답을 <b>실수값</b>으로 적습니다. (예: 광고비 → 매출 22.1)</p>
+      </div>
+      <div class="card acc-b">
+        <span class="tag b">CLASSIFICATION</span>
+        <h3 style="margin-top:.6rem">분류</h3>
+        <p>정해진 <b>선택지 중에서</b> 고릅니다. (예: 스팸 여부, 숫자 0~9)</p>
+      </div>
+    </div>
+    <div class="fml sm step">
+      오류율 = 틀린 개수를 전체 개수로 나눈 비율 (낮을수록 우수)
+    </div>
+  </div>
+</section>
+
+<!-- 25. K-NN 분류 -->
+<section class="slide dense">
+  <div class="top"><div class="kicker">분류 · 넌파라메트릭 예시</div>
+    <h2>K-최근접 이웃(K-NN) 분류</h2></div>
+  <div class="body">
+    <div class="grid2" style="gap:1.2rem;grid-template-columns:1.3fr 1fr">
+      <div class="demo">
+        <canvas id="cv-knn" width="880" height="430" style="cursor:crosshair"></canvas>
+        <div class="ctl" style="margin-top:.7rem">
+          <label>K
+            <input type="range" id="knn-k" min="1" max="15" step="1" value="5">
+            <span class="val" id="knn-kv">5</span></label>
+        </div>
+      </div>
+      <div class="card acc-b">
+        <h3>이웃 K개의 다수결 투표</h3>
+        <div id="knn-votes"></div>
+        <p style="margin-top:.6rem">예측: <b id="knn-pred" style="font-size:2.025rem">—</b></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 26. 정리 -->
+<section class="slide">
+  <div class="top"><div class="kicker">WRAP UP</div><h2>오늘 정리</h2></div>
+  <div class="body">
+    <div class="card acc">
+      <h3>지도 학습의 4단계 요약</h3>
+      <ul class="clean">
+        <li><b>STEP 1</b> 모델 형태 정의 (사람)</li>
+        <li><b>STEP 2</b> 채점 목표 수식화 (사람) — MSE</li>
+        <li><b>STEP 3</b> 최적화 및 훈련 (기계)</li>
+        <li><b>STEP 4</b> 테스트 데이터로 평가 (일반화)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 27. 새 모델을 만날 때 -->
+<section class="slide">
+  <div class="top"><div class="kicker">WRAP UP</div><h2>새 모델을 만나면</h2></div>
+  <div class="body">
+    <div class="card acc-c">
+      <h3>4단계 질문 프레임워크</h3>
+      <ul class="clean">
+        <li>STEP 1: 어떤 모양의 함수를 가정했는가?</li>
+        <li>STEP 2: 무엇으로 채점하는가?</li>
+        <li>STEP 3: 파라미터를 어떻게 찾는가?</li>
+        <li>STEP 4: 검증 및 테스트는 어떻게 수행하는가?</li>
+      </ul>
+    </div>
+    <p class="note center" style="font-size:1.8rem;margin-top:.4rem"><b class="hl">규칙을 직접 적지 않고, 데이터에서 규칙을 찾게 합니다.</b></p>
+  </div>
+</section>
+
+</div>
+
+<div class="bar" id="bar"></div>
+<div class="brand">인공지능 일반 · 5차시</div>
+<div class="hud">
+  <button onclick="go(-1)">‹</button>
+  <span id="cnt">1 / 27</span>
+  <button onclick="go(1)">›</button>
+</div>
+
+<script>
+const S = Array.from(document.querySelectorAll('.slide'));
+let i = 0;
+function stepsOf(n){ return Array.from(S[n].querySelectorAll('.step')); }
+function show(n, all){
+  i = Math.max(0, Math.min(S.length - 1, n));
+  S.forEach((s, k) => s.classList.toggle('on', k === i));
+  stepsOf(i).forEach(e => e.classList.toggle('in', !!all));
+  const cntEl = document.getElementById('cnt');
+  if (cntEl) cntEl.textContent = (i + 1) + ' / ' + S.length;
+  const barEl = document.getElementById('bar');
+  if (barEl) barEl.style.width = ((i + 1) / S.length * 100) + '%';
+  S[i].scrollTop = 0;
+}
+function nextStep(){
+  const e = stepsOf(i).find(x => !x.classList.contains('in'));
+  if (e) { e.classList.add('in'); return true; }
+  return false;
+}
+function go(d){
+  if (d > 0 && nextStep()) return;
+  show(i + d, d < 0);
+}
+
+// Global drawing helpers for visual canvases
+const C = { a:'#0a7ec2', b:'#b06a00', c:'#0e8a52', d:'#6a3fc0', w:'#c8324a', fg:'#16233c', dim:'#5d6c86', line:'rgba(20,35,66,.18)' };
+function ctxOf(id){
+  const cv = document.getElementById(id);
+  if(!cv) return [null, null];
+  const g = cv.getContext('2d');
+  g.clearRect(0,0,cv.width,cv.height);
+  return [cv, g];
+}
+function gauss(){
+  let u=0,v=0; while(!u) u=Math.random(); while(!v) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function axes(g, P, xlab, ylab){
+  if (!g) return;
+  g.strokeStyle = C.line; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(P.l, P.t); g.lineTo(P.l, P.b); g.lineTo(P.r, P.b); g.stroke();
+  g.fillStyle = C.dim; g.font = '600 15px "Noto Sans KR", sans-serif';
+  if (xlab){ g.textAlign='right'; g.fillText(xlab, P.r, P.b + 26); }
+  if (ylab){ g.textAlign='left';  g.fillText(ylab, P.l - 4, P.t - 10); }
+}
+function feat(x, d){ const t = 2*x-1, v = [1]; for (let k=1;k<=d;k++) v.push(v[k-1]*t); return v; }
+function solve(A, y){
+  const m = y.length, M = A.map((r,k) => r.concat([y[k]]));
+  for (let c=0;c<m;c++){
+    let piv = c;
+    for (let r=c+1;r<m;r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+    const tmp = M[c]; M[c] = M[piv]; M[piv] = tmp;
+    if (Math.abs(M[c][c]) < 1e-12) continue;
+    for (let r=0;r<m;r++){ if (r===c) continue;
+      const f = M[r][c]/M[c][c];
+      for (let s=c;s<=m;s++) M[r][s] -= f*M[c][s]; }
+  }
+  return M.map((r,k) => Math.abs(r[k])<1e-12 ? 0 : r[m]/r[k]);
+}
+function polyfit(data, d){
+  const m = d+1, A = [], y = new Array(m).fill(0);
+  for (let r=0;r<m;r++) A.push(new Array(m).fill(0));
+  data.forEach(p => { const v = feat(p[0], d);
+    for (let r=0;r<m;r++){ y[r] += v[r]*p[1];
+      for (let s=0;s<m;s++) A[r][s] += v[r]*v[s]; } });
+  for (let r=0;r<m;r++) A[r][r] += 1e-7;
+  return solve(A, y);
+}
+const ppred = (x, w) => feat(x, w.length-1).reduce((s,v,k) => s + v*w[k], 0);
+const prmse = (data, w) => Math.sqrt(data.reduce((s,p) => s + Math.pow(p[1]-ppred(p[0],w),2), 0)/data.length);
+
+// 1. Framework Canvas
+(function(){
+  const [cv, g] = ctxOf('cv-fw');
+  if (!cv || !g) return;
+  const P = { l:64, r:cv.width-24, t:24, b:cv.height-44 };
+  const A = 2.4, B = 1.0, N = 60, pts = [];
+  for (let k=0;k<N;k++){ const x = -2.6 + 5.4*k/(N-1) + gauss()*0.06; pts.push([x, A*x + B + gauss()*1.1]); }
+  const xmin=-3, xmax=3.6, ymin=-9, ymax=12;
+  const X = x => P.l + (x-xmin)/(xmax-xmin)*(P.r-P.l);
+  const Y = y => P.b - (y-ymin)/(ymax-ymin)*(P.b-P.t);
+  axes(g, P, null, null);
+  g.strokeStyle = 'rgba(200,50,74,.9)'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(X(xmin), Y(A*xmin+B)); g.lineTo(X(2.85), Y(A*2.85+B)); g.stroke();
+  g.strokeStyle = 'rgba(200,50,74,.75)'; g.lineWidth = 1.8;
+  pts.forEach(p => { g.beginPath(); g.arc(X(p[0]), Y(p[1]), 4.4, 0, 7); g.stroke(); });
+  g.fillStyle = C.w; g.font = '800 17px "JetBrains Mono", monospace'; g.textAlign='left';
+  g.fillText('y = a x', X(2.95), Y(A*2.85+B) + 6);
+  g.fillStyle = C.dim; g.font = '600 16px "Noto Sans KR", sans-serif'; g.textAlign='left';
+  g.fillText('훈련 데이터 (xᵢ, yᵢ)', X(-0.6), Y(-5.5));
+  g.fillStyle = C.a; g.font='800 18px "Noto Sans KR",sans-serif'; g.textAlign='right';
+  g.fillText('x', P.r, P.b+26);
+  g.fillStyle = C.c; g.textAlign='left'; g.fillText('y', P.l-6, P.t-8);
+})();
+
+// 2. 3D Surface Canvas
+(function(){
+  const [cv, g] = ctxOf('cv-surf');
+  if (!cv || !g) return;
+  const EX = 150, EY = 50, SX = 162, SY = -46, HZ = 78;
+  function proj(ox, oy, u, v, h){
+    return [ ox + (u-0.5)*EX + (v-0.5)*SX, oy + (u-0.5)*EY + (v-0.5)*SY - h*HZ ];
+  }
+  const truth = (u,v) => 0.36 + 0.26*u + 0.06*v + 0.24*Math.tanh(9*(v-0.55));
+  const DATA = [];
+  for (let k=0;k<30;k++){ const u = Math.random()*0.94+0.03, v = Math.random()*0.94+0.03; DATA.push([u, v, truth(u,v) + gauss()*0.075]); }
+  const A=[[0,0,0],[0,0,0],[0,0,0]], y=[0,0,0];
+  DATA.forEach(p => { const f=[1,p[0],p[1]]; for (let r=0;r<3;r++){ y[r]+=f[r]*p[2]; for (let c=0;c<3;c++) A[r][c]+=f[r]*f[c]; } });
+  const pl = solve(A, y);
+  const plane = (u,v) => pl[0] + pl[1]*u + pl[2]*v;
+  function box(ox, oy, col){
+    g.strokeStyle = col; g.lineWidth = 1.2;
+    const c = [[0,0],[1,0],[1,1],[0,1]];
+    g.beginPath(); c.forEach((q,k) => { const s = proj(ox,oy,q[0],q[1],0); k?g.lineTo(s[0],s[1]):g.moveTo(s[0],s[1]); }); g.closePath(); g.stroke();
+    c.forEach(q => { const a0 = proj(ox,oy,q[0],q[1],0), a1 = proj(ox,oy,q[0],q[1],1.05); g.beginPath(); g.moveTo(a0[0],a0[1]); g.lineTo(a1[0],a1[1]); g.stroke(); });
+    g.beginPath(); c.forEach((q,k) => { const s = proj(ox,oy,q[0],q[1],1.05); k?g.lineTo(s[0],s[1]):g.moveTo(s[0],s[1]); }); g.closePath(); g.stroke();
+  }
+  function surface(ox, oy, fn, fill, stroke){
+    const N = 14, quads = [];
+    for (let a=0;a<N;a++) for (let b=0;b<N;b++){
+      const u0=a/N, u1=(a+1)/N, v0=b/N, v1=(b+1)/N;
+      quads.push([ (v0+v1)/2 - (u0+u1)/2, [proj(ox,oy,u0,v0,fn(u0,v0)), proj(ox,oy,u1,v0,fn(u1,v0)), proj(ox,oy,u1,v1,fn(u1,v1)), proj(ox,oy,u0,v1,fn(u0,v1))] ]);
+    }
+    quads.sort((p,q) => q[0]-p[0]);
+    g.lineWidth = 1;
+    quads.forEach(q => { g.beginPath(); q[1].forEach((s,k) => k?g.lineTo(s[0],s[1]):g.moveTo(s[0],s[1])); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = stroke; g.stroke(); });
+  }
+  function points(ox, oy, fn){
+    DATA.slice().sort((p,q) => (q[1]-q[0]) - (p[1]-p[0])).forEach(p => {
+      const s = proj(ox,oy,p[0],p[1],p[2]), s0 = proj(ox,oy,p[0],p[1],fn(p[0],p[1]));
+      g.strokeStyle='rgba(20,35,66,.55)'; g.lineWidth=1.1; g.beginPath(); g.moveTo(s[0],s[1]); g.lineTo(s0[0],s0[1]); g.stroke();
+      g.beginPath(); g.arc(s[0],s[1],4.2,0,7); g.fillStyle='#d1293f'; g.fill();
+    });
+  }
+  const OY = 158, L = 330, R = 950;
+  box(L, OY, 'rgba(20,35,66,.22)'); surface(L, OY, truth, 'rgba(10,126,194,.30)', 'rgba(10,90,150,.85)'); points(L, OY, truth);
+  box(R, OY, 'rgba(20,35,66,.22)'); surface(R, OY, plane, 'rgba(232,188,28,.55)', 'rgba(140,105,10,.8)'); points(R, OY, plane);
+  g.textAlign='center'; g.font='800 18px "Noto Sans KR", sans-serif';
+  g.fillStyle=C.a; g.fillText('알 수 없는 진짜 f  (파란 면)', L, 24);
+  g.fillStyle='#8c6a0a'; g.fillText('학습한 모델 f̂  (노란 면 · 평면)', R, 24);
+})();
+
+// 3. Bias & Variance Canvas
+(function(){
+  const truth = x => 0.9*Math.sin(2*Math.PI*x*0.85) + 0.25;
+  const N = 20, R = 20, GRID = 200;
+  function sample(){ const D = []; for (let k=0;k<N;k++){ const x = 0.03 + 0.94*k/(N-1); D.push([x, truth(x) + gauss()*0.25]); } return D; }
+  function draw(){
+    const [cv, g] = ctxOf('cv-bv');
+    if (!cv || !g) return;
+    const sets = Array.from({length:R}, sample);
+    const models = [
+      { title:'① 직선 — 단순한 모델', col:C.a, fit: D => { const w = polyfit(D, 1); return x => ppred(x, w); } },
+      { title:'② 9차 곡선 — 유연한 모델', col:C.d, fit: D => { const w = polyfit(D, 9); return x => ppred(x, w); } },
+    ];
+    const W = cv.width/2, ymin=-1.6, ymax=1.8;
+    models.forEach((m, panel) => {
+      const P = { l: panel*W + 40, r: panel*W + W - 30, t: 40, b: cv.height - 24 };
+      const X = x => P.l + x*(P.r-P.l);
+      const Y = y => P.b - (Math.max(ymin, Math.min(ymax, y))-ymin)/(ymax-ymin)*(P.b-P.t);
+      g.fillStyle = m.col; g.font = '800 17px "Noto Sans KR", sans-serif'; g.textAlign='left'; g.fillText(m.title, P.l, 28);
+      axes(g, P, null, null);
+      const mean = new Array(GRID+1).fill(0);
+      g.strokeStyle = m.col; g.lineWidth = 1.4; g.globalAlpha = 0.28;
+      sets.forEach(D => {
+        const f = m.fit(D); g.beginPath();
+        for (let k=0;k<=GRID;k++){ const x=k/GRID, y=f(x); mean[k] += y/R; k?g.lineTo(X(x),Y(y)):g.moveTo(X(x),Y(y)); }
+        g.stroke();
+      });
+      g.globalAlpha = 1;
+      g.strokeStyle='rgba(20,35,66,.55)'; g.lineWidth=2.2; g.setLineDash([6,5]); g.beginPath();
+      for (let k=0;k<=120;k++){ const x=k/120; k?g.lineTo(X(x),Y(truth(x))):g.moveTo(X(x),Y(truth(x))); }
+      g.stroke(); g.setLineDash([]);
+      g.strokeStyle = m.col; g.lineWidth = 3.6; g.beginPath();
+      mean.forEach((y,k) => { const x=k/GRID; k?g.lineTo(X(x),Y(y)):g.moveTo(X(x),Y(y)); });
+      g.stroke();
+    });
+  }
+  draw();
+  const bvBtn = document.getElementById('bv-new');
+  if (bvBtn) bvBtn.addEventListener('click', draw);
+})();
+
+// 3-2. Three Models Comparison Canvas
+(function(){
+  const [cv, g] = ctxOf('cv-three');
+  if (!cv || !g) return;
+  const truth = x => 0.9*Math.sin(2*Math.PI*x*0.85) + 0.25;
+  const N = 12, D = [];
+  for (let k=0;k<N;k++){ const x = 0.04 + 0.92*k/(N-1); D.push([x, truth(x) + gauss()*0.20]); }
+  const titles = ['① 직선 (1차)', '② 곡선 (4차)', '③ K-NN (K=1)'];
+  const cols   = [C.a, C.d, C.b];
+  const W = cv.width/3;
+  for (let panel=0; panel<3; panel++){
+    const P = { l: panel*W + 38, r: panel*W + W - 20, t: 40, b: cv.height - 30 };
+    const ymin=-1.6, ymax=1.8;
+    const X = x => P.l + x*(P.r-P.l);
+    const Y = y => P.b - (y-ymin)/(ymax-ymin)*(P.b-P.t);
+    g.fillStyle = cols[panel]; g.font = '800 17px "Noto Sans KR", sans-serif'; g.textAlign='left'; g.fillText(titles[panel], P.l, 28);
+    axes(g, P, null, null);
+    g.strokeStyle='rgba(20,35,66,.22)'; g.lineWidth=2; g.setLineDash([6,5]); g.beginPath();
+    for (let k=0;k<=120;k++){ const x=k/120; k?g.lineTo(X(x),Y(truth(x))):g.moveTo(X(x),Y(truth(x))); }
+    g.stroke(); g.setLineDash([]);
+    g.strokeStyle=cols[panel]; g.lineWidth=3.2; g.beginPath();
+    if (panel < 2){
+      const w = polyfit(D, panel===0 ? 1 : 4);
+      for (let k=0;k<=200;k++){ const x=k/200, y=Math.max(ymin,Math.min(ymax,ppred(x,w))); k?g.lineTo(X(x),Y(y)):g.moveTo(X(x),Y(y)); }
+    } else {
+      for (let k=0;k<=200;k++){ const x=k/200; let best=D[0]; D.forEach(p => { if (Math.abs(p[0]-x) < Math.abs(best[0]-x)) best=p; }); k?g.lineTo(X(x),Y(best[1])):g.moveTo(X(x),Y(best[1])); }
+    }
+    g.stroke();
+    D.forEach(p => { g.beginPath(); g.arc(X(p[0]),Y(p[1]),5,0,7); g.fillStyle=C.c; g.fill(); g.strokeStyle='#fff'; g.lineWidth=1.8; g.stroke(); });
+  }
+})();
+
+// 4. Fitting Canvas
+const FIT = (function(){
+  const [cv, g] = ctxOf('cv-fit');
+  if (!cv || !g) return { draw:()=>{} };
+  const P = { l:62, r:cv.width-26, t:20, b:cv.height-42 };
+  const xmin=-3.4, xmax=3.4, ymin=-10, ymax=10;
+  const X = x => P.l + (x-xmin)/(xmax-xmin)*(P.r-P.l);
+  const Y = y => P.b - (y-ymin)/(ymax-ymin)*(P.b-P.t);
+  const TA = 2.2, TB = 0.8, N = 24, D = [];
+  for (let k=0;k<N;k++){ const x = -3 + 6*k/(N-1) + gauss()*0.12; D.push([x, TA*x + TB + gauss()*1.5]); }
+  let sx=0, sy=0, sxx=0, sxy=0;
+  D.forEach(p => { sx+=p[0]; sy+=p[1]; sxx+=p[0]*p[0]; sxy+=p[0]*p[1]; });
+  const bestA = (N*sxy - sx*sy) / (N*sxx - sx*sx);
+  const bestB = (sy - bestA*sx) / N;
+  const mse = (a,b) => D.reduce((s,p) => s + Math.pow(p[1]-(a*p[0]+b), 2), 0) / N;
+  const bestM = mse(bestA, bestB);
+  function draw(){
+    const a = +document.getElementById('fit-a').value;
+    const b = +document.getElementById('fit-b').value;
+    document.getElementById('fit-av').textContent = a.toFixed(2);
+    document.getElementById('fit-bv').textContent = b.toFixed(1);
+    g.clearRect(0,0,cv.width,cv.height);
+    axes(g, P, 'x (입력)', 'y (정답)');
+    g.strokeStyle='rgba(200,50,74,.55)'; g.lineWidth=2.4;
+    D.forEach(p => { g.beginPath(); g.moveTo(X(p[0]),Y(p[1])); g.lineTo(X(p[0]),Y(a*p[0]+b)); g.stroke(); });
+    g.strokeStyle=C.d; g.lineWidth=3.4;
+    g.beginPath(); g.moveTo(X(xmin),Y(a*xmin+b)); g.lineTo(X(xmax),Y(a*xmax+b)); g.stroke();
+    D.forEach(p => { g.beginPath(); g.arc(X(p[0]),Y(p[1]),5,0,7); g.fillStyle='rgba(14,138,82,.85)'; g.fill(); g.strokeStyle='#fff'; g.lineWidth=1.5; g.stroke(); });
+    g.fillStyle=C.d; g.font='800 18px "JetBrains Mono", monospace'; g.textAlign='left';
+    g.fillText('ŷ = ' + a.toFixed(2) + 'x ' + (b<0?'− ':'+ ') + Math.abs(b).toFixed(1), P.l+14, P.t+26);
+    document.getElementById('fit-mse').textContent = mse(a,b).toFixed(2);
+    document.getElementById('fit-opt').textContent = bestM.toFixed(2);
+  }
+  const fa = document.getElementById('fit-a'), fb = document.getElementById('fit-b');
+  if (fa) fa.addEventListener('input', draw);
+  if (fb) fb.addEventListener('input', draw);
+  return { draw };
+})();
+
+// 5. Overfitting Canvas
+const OF = (function(){
+  const [cv, g] = ctxOf('cv-of');
+  const [cc, gc] = ctxOf('cv-ofc');
+  if (!cv || !g || !cc || !gc) return { init:()=>{} };
+  const P = { l:52, r:cv.width-24, t:20, b:cv.height-42 };
+  const ymin=-1.9, ymax=1.9;
+  const X = x => P.l + x*(P.r-P.l);
+  const Y = y => P.b - (y-ymin)/(ymax-ymin)*(P.b-P.t);
+  const truth = x => Math.sin(2*Math.PI*x*0.95) * 1.15;
+  const NTR = 13, NTE = 60, SIG = 0.30, DMAX = 12;
+  let TR = [], TE = [], curve = [];
+  function gen(){
+    TR = []; TE = [];
+    for (let k=0;k<NTR;k++){ const x = 0.03 + 0.94*k/(NTR-1) + gauss()*0.012; TR.push([Math.min(1,Math.max(0,x)), truth(x) + gauss()*SIG]); }
+    for (let k=0;k<NTE;k++){ const x = Math.random(); TE.push([x, truth(x) + gauss()*SIG]); }
+    curve = [];
+    for (let d=1; d<=DMAX; d++){ const w = polyfit(TR, d); curve.push([prmse(TR,w), prmse(TE,w)]); }
+  }
+  function draw(){
+    const d = +document.getElementById('of-d').value;
+    document.getElementById('of-dv').textContent = d;
+    const w = polyfit(TR, d);
+    g.clearRect(0,0,cv.width,cv.height);
+    axes(g, P, 'x', 'y');
+    g.strokeStyle='rgba(20,35,66,.30)'; g.lineWidth=2.4; g.setLineDash([7,6]);
+    g.beginPath(); for (let k=0;k<=200;k++){ const x=k/200; k?g.lineTo(X(x),Y(truth(x))):g.moveTo(X(x),Y(truth(x))); } g.stroke(); g.setLineDash([]);
+    g.strokeStyle=C.d; g.lineWidth=3.4; g.beginPath();
+    for (let k=0;k<=400;k++){ const x=k/400, yy=Math.min(ymax+4, Math.max(ymin-4, ppred(x,w))); k?g.lineTo(X(x),Y(yy)):g.moveTo(X(x),Y(yy)); }
+    g.stroke();
+    TE.forEach(p => { g.beginPath(); g.arc(X(p[0]),Y(p[1]),3.2,0,7); g.fillStyle='rgba(200,50,74,.32)'; g.fill(); });
+    TR.forEach(p => { g.beginPath(); g.arc(X(p[0]),Y(p[1]),6,0,7); g.fillStyle=C.a; g.fill(); g.strokeStyle='#fff'; g.lineWidth=2; g.stroke(); });
+    document.getElementById('of-tr').textContent = prmse(TR,w).toFixed(3);
+    document.getElementById('of-te').textContent = prmse(TE,w).toFixed(3);
+    const Q = { l:46, r:cc.width-14, t:16, b:cc.height-34 }, top = 1.1;
+    const CX = dm => Q.l + (dm-1)/(DMAX-1)*(Q.r-Q.l), CY = e => Q.b - Math.min(e,top)/top*(Q.b-Q.t);
+    gc.clearRect(0,0,cc.width,cc.height);
+    axes(gc, Q, '복잡도(차수) →', '오차');
+    [[0,C.a],[1,C.w]].forEach(pair => {
+      gc.strokeStyle=pair[1]; gc.lineWidth=2.8; gc.beginPath();
+      curve.forEach((e,k) => { const x=CX(k+1), y=CY(e[pair[0]]); k?gc.lineTo(x,y):gc.moveTo(x,y); });
+      gc.stroke();
+    });
+  }
+  return { init: function(){ gen(); draw(); } };
+})();
+
+// 6. KNN Canvas
+const KNN = (function(){
+  const [cv, g] = ctxOf('cv-knn');
+  if (!cv || !g) return { draw:()=>{} };
+  const P = { l:40, r:cv.width-20, t:20, b:cv.height-36 };
+  const X = u => P.l + u*(P.r-P.l), Y = v => P.b - v*(P.b-P.t);
+  const CL = [ { nm:'고양이', col:C.b }, { nm:'강아지', col:C.d }, { nm:'비행기', col:'#3d6f8e' } ];
+  const Q0 = [0.5, 0.5];
+  let seed = 7;
+  const rnd = () => { seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; };
+  const nrm = () => { let u=0,v=0; while(!u) u=rnd(); while(!v) v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+  const D = [];
+  [[0.28,0.62],[0.72,0.66],[0.52,0.22]].forEach((c,j) => {
+    let n = 0;
+    while (n < 22){ const u = c[0]+nrm()*0.13, v = c[1]+nrm()*0.13;
+      if (u<0.02||u>0.98||v<0.03||v>0.97||Math.hypot(u-Q0[0], v-Q0[1]) < 0.11) continue;
+      D.push([u,v,j]); n++; }
+  });
+  [[0.455,0.53,0],[0.47,0.455,0],[0.535,0.545,0],[0.565,0.49,1],[0.49,0.425,2]].forEach(p => D.push(p));
+  let q = Q0.slice();
+  function mark(x, y, j, r){
+    g.fillStyle = CL[j].col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath();
+    if (j === 0) g.arc(x, y, r, 0, 7);
+    else if (j === 1) g.rect(x-r*.9, y-r*.9, r*1.8, r*1.8);
+    else { g.moveTo(x, y-r*1.15); g.lineTo(x+r, y+r*.75); g.lineTo(x-r, y+r*.75); g.closePath(); }
+    g.fill(); g.stroke();
+  }
+  function draw(){
+    const K = +document.getElementById('knn-k').value;
+    document.getElementById('knn-kv').textContent = K;
+    const nb = D.map(p => [Math.hypot(p[0]-q[0], p[1]-q[1]), p]).sort((a,b) => a[0]-b[0]).slice(0, K);
+    const rad = nb[nb.length-1][0];
+    g.clearRect(0,0,cv.width,cv.height);
+    axes(g, P, '특징 1', '특징 2');
+    const sx = (P.r-P.l), sy = (P.b-P.t);
+    g.fillStyle = 'rgba(106,63,192,.07)'; g.strokeStyle = 'rgba(106,63,192,.5)'; g.lineWidth = 2;
+    g.setLineDash([6,5]); g.beginPath(); g.ellipse(X(q[0]), Y(q[1]), rad*sx+10, rad*sy+10, 0, 0, 7); g.fill(); g.stroke(); g.setLineDash([]);
+    nb.forEach(e => { g.beginPath(); g.moveTo(X(q[0]),Y(q[1])); g.lineTo(X(e[1][0]),Y(e[1][1])); g.stroke(); });
+    D.forEach(p => { g.globalAlpha = nb.some(e => e[1] === p) ? 1 : 0.42; mark(X(p[0]), Y(p[1]), p[2], 7); });
+    g.globalAlpha = 1;
+    g.font = '900 24px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = C.fg; g.fillText('★', X(q[0]), Y(q[1])+1);
+    const cnt = [0,0,0]; nb.forEach(e => cnt[e[1][2]]++);
+    const votesEl = document.getElementById('knn-votes');
+    if (votesEl) {
+      votesEl.innerHTML = CL.map((c,j) =>
+        '<div class="vote"><span class="nm" style="color:'+c.col+'">'+c.nm+'</span>' +
+        '<div class="tr"><div style="width:'+(cnt[j]/K*100)+'%;background:'+c.col+'"></div></div>' +
+        '<span class="fr" style="color:'+c.col+'">'+cnt[j]+'/'+K+'</span></div>').join('');
+    }
+    const predEl = document.getElementById('knn-pred');
+    if (predEl) { predEl.textContent = "고양이"; predEl.style.color = C.b; }
+  }
+  return { draw };
+})();
+
+// Initial trigger
+show(0);
+if(FIT) FIT.draw();
+if(OF) OF.init();
+if(KNN) KNN.draw();
+<\/script>
+</body>
+</html>`;
+
+    // Global App State
+    let currentHtmlContent = "";
+    let totalSlides = 0;
+    let currentSlideIdx = 0;
+    let generatedCanvases = [];
+    let isConverting = false;
+    let generatedPdfBlob = null;
+    let currentBlobUrl = null;
+
+    // Elements
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const loadedFileName = document.getElementById('loadedFileName');
+    const detectedSlideCount = document.getElementById('detectedSlideCount');
+    const loadPresetBtn = document.getElementById('loadPresetBtn');
+    const slideSandbox = document.getElementById('slideSandbox');
+    const liveSlideIndex = document.getElementById('liveSlideIndex');
+    const prevSlideNav = document.getElementById('prevSlideNav');
+    const nextSlideNav = document.getElementById('nextSlideNav');
+    const stepSlideNav = document.getElementById('stepSlideNav');
+    const startConvertBtn = document.getElementById('startConvertBtn');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+    const downloadSlideCount = document.getElementById('downloadSlideCount');
+    const progressCard = document.getElementById('progressCard');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressStatusText = document.getElementById('progressStatusText');
+    const currentSlideNum = document.getElementById('currentSlideNum');
+    const elapsedTime = document.getElementById('elapsedTime');
+    const thumbGrid = document.getElementById('thumbGrid');
+    const emptyThumbNotice = document.getElementById('emptyThumbNotice');
+    const thumbCountBadge = document.getElementById('thumbCountBadge');
+    const scaleInput = document.getElementById('scaleInput');
+    const scaleLabel = document.getElementById('scaleLabel');
+    const delayInput = document.getElementById('delayInput');
+    const delayLabel = document.getElementById('delayLabel');
+    const stepOption = document.getElementById('stepOption');
+    const stepOptionDesc = document.getElementById('stepOptionDesc');
+
+    // CRITICAL FIX: Force-inject CSS that completely kills @keyframes fade and opacity transitions
+    // so neither the live iframe nor html2canvas's cloned DOM ever captures a slide mid-fade!
+    const ANTI_BLUR_CSS = `
+      @keyframes fade {
+        0%, 100%, from, to {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      }
+      *, *::before, *::after {
+        animation: none !important;
+        animation-name: none !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition: none !important;
+        transition-property: none !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+      }
+      .slide, .slide.on, section.slide, section.slide.on {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+      }
+      .step.in {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+        visibility: visible !important;
+      }
+      .step:not(.in) {
+        animation: none !important;
+        transition: none !important;
+        opacity: 0 !important;
+      }
+      .fml.deriv.step:not(.in) {
+        display: none !important;
+      }
+      .fml.deriv.step.in {
+        display: grid !important;
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+      }
+    `;
+
+    // Preprocess raw HTML source before loading into iframe so animations never start
+    function preprocessSlideHtml(rawHtml) {
+      if (!rawHtml) return "";
+      let processed = rawHtml
+        .replace(/animation\s*:\s*fade[^;}\n]*/gi, 'animation:none')
+        .replace(/transition\s*:\s*opacity[^;}\n]*/gi, 'transition:none');
+
+      const styleBlock = `<style id="pdf-anti-blur-freeze">${ANTI_BLUR_CSS}</style>`;
+      if (processed.includes('</head>')) {
+        processed = processed.replace('</head>', `${styleBlock}\n</head>`);
+      } else {
+        processed = styleBlock + '\n' + processed;
+      }
+      return processed;
+    }
+
+    function injectAntiBlurStyles(targetDoc) {
+      if (!targetDoc || !targetDoc.head) return;
+      let styleEl = targetDoc.getElementById('pdf-anti-blur-freeze');
+      if (!styleEl) {
+        styleEl = targetDoc.createElement('style');
+        styleEl.id = 'pdf-anti-blur-freeze';
+        targetDoc.head.appendChild(styleEl);
+      }
+      styleEl.textContent = ANTI_BLUR_CSS;
+    }
+
+    function forceElementSharpness(slideEl) {
+      if (!slideEl) return;
+      slideEl.style.setProperty('animation', 'none', 'important');
+      slideEl.style.setProperty('transition', 'none', 'important');
+      slideEl.style.setProperty('opacity', '1', 'important');
+      slideEl.style.setProperty('transform', 'none', 'important');
+      slideEl.style.setProperty('filter', 'none', 'important');
+
+      // Enforce sharpness across all child elements inside the active slide
+      slideEl.querySelectorAll('*').forEach(el => {
+        el.style.setProperty('animation', 'none', 'important');
+        el.style.setProperty('transition', 'none', 'important');
+        if (el.classList.contains('step')) {
+          if (el.classList.contains('in')) {
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('transform', 'none', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
+          } else {
+            el.style.setProperty('opacity', '0', 'important');
+          }
+        } else if (!el.closest('.step:not(.in)')) {
+          el.style.setProperty('opacity', '1', 'important');
+        }
+      });
+
+      // Force synchronous layout reflow
+      void slideEl.offsetHeight;
+    }
+
+    scaleInput.addEventListener('input', () => {
+      scaleLabel.textContent = `${parseFloat(scaleInput.value).toFixed(1)}x (${scaleInput.value >= 2 ? '초고화질 선명 모드' : '표준 선명도'})`;
+    });
+    delayInput.addEventListener('input', () => {
+      delayLabel.textContent = `${delayInput.value}ms`;
+    });
+    stepOption.addEventListener('change', () => {
+      if (stepOption.value === 'stepByStep') {
+        stepOptionDesc.textContent = '발표자가 클릭할 때마다 수식이나 카드가 하나씩 등장하는 모든 순간을 각각의 PDF 페이지로 분할 저장합니다.';
+      } else if (stepOption.value === 'complete') {
+        stepOptionDesc.textContent = '모든 단계가 완성된 상태로 각 슬라이드당 선명한 1장씩 깨끗하게 PDF로 저장합니다.';
+      } else {
+        stepOptionDesc.textContent = '슬라이드가 열린 직후(클릭하기 전 초기 화면) 모습만 슬라이드당 1페이지로 저장합니다.';
+      }
+    });
+
+    function showToast(message, isSuccess = true) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+      toastMsg.textContent = message;
+      toastIcon.className = isSuccess ? 'fa-solid fa-circle-check text-emerald-400 text-base' : 'fa-solid fa-circle-exclamation text-amber-400 text-base';
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
+    function resizeIframeScale() {
+      const wrapper = document.getElementById('sandboxWrapper');
+      if (!wrapper) return;
+      const containerWidth = wrapper.clientWidth;
+      const scale = containerWidth / 1920;
+      slideSandbox.style.transform = `scale(${scale})`;
+      slideSandbox.style.transformOrigin = '0 0';
+    }
+    window.addEventListener('resize', resizeIframeScale);
+
+    // Display specific slide in sandbox
+    function setSandboxSlide(targetIdx, revealAllSteps = false) {
+      try {
+        const win = slideSandbox.contentWindow;
+        if (!win) return;
+        const doc = slideSandbox.contentDocument || win.document;
+        const slides = doc.querySelectorAll('.slide, section.slide');
+        if (slides.length === 0) return;
+
+        targetIdx = Math.max(0, Math.min(slides.length - 1, targetIdx));
+        currentSlideIdx = targetIdx;
+
+        if (typeof win.show === 'function') {
+          win.show(targetIdx, revealAllSteps);
+        } else {
+          slides.forEach((s, idx) => {
+            if (idx === targetIdx) {
+              s.classList.add('on');
+              s.style.display = 'flex';
+              if (revealAllSteps) {
+                s.querySelectorAll('.step').forEach(st => {
+                  st.classList.add('in');
+                  st.style.opacity = '1';
+                  st.style.transform = 'none';
+                });
+              }
+            } else {
+              s.classList.remove('on');
+              s.style.display = 'none';
+            }
+          });
+        }
+
+        // Trigger dynamic canvas redraws
+        if (win.FIT && typeof win.FIT.draw === 'function') win.FIT.draw();
+        if (win.OF && typeof win.OF.init === 'function') win.OF.init();
+        if (win.KNN && typeof win.KNN.draw === 'function') win.KNN.draw();
+
+        // Ensure anti-blur styles and inline opacity=1 are immediately enforced
+        injectAntiBlurStyles(doc);
+        forceElementSharpness(slides[targetIdx]);
+
+        liveSlideIndex.textContent = `${currentSlideIdx + 1} / ${totalSlides}`;
+      } catch (e) {
+        console.warn("Iframe update error:", e);
+      }
+    }
+
+    // Step forward inside current slide
+    function triggerNextStepInSandbox() {
+      try {
+        const win = slideSandbox.contentWindow;
+        if (!win) return;
+        const doc = slideSandbox.contentDocument || win.document;
+        if (typeof win.nextStep === 'function') {
+          const hasMore = win.nextStep();
+          if (!hasMore) {
+            setSandboxSlide(currentSlideIdx + 1, false);
+          }
+        } else {
+          const currentSlide = doc.querySelectorAll('.slide')[currentSlideIdx];
+          if (!currentSlide) return;
+          const nextHidden = currentSlide.querySelector('.step:not(.in)');
+          if (nextHidden) {
+            nextHidden.classList.add('in');
+          } else {
+            setSandboxSlide(currentSlideIdx + 1, false);
+          }
+        }
+        injectAntiBlurStyles(doc);
+        const activeSlide = doc.querySelectorAll('.slide, section.slide')[currentSlideIdx];
+        forceElementSharpness(activeSlide);
+      } catch(e) {
+        console.warn("Step forward error:", e);
+      }
+    }
+
+    // Safely load HTML document via Blob URL into iframe
+    function loadIntoIframe(htmlString) {
+      const cleanHtml = preprocessSlideHtml(htmlString);
+      currentHtmlContent = cleanHtml;
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+      const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8' });
+      currentBlobUrl = URL.createObjectURL(blob);
+      slideSandbox.src = currentBlobUrl;
+
+      slideSandbox.onload = () => {
+        setTimeout(async () => {
+          try {
+            const win = slideSandbox.contentWindow;
+            const doc = slideSandbox.contentDocument || win.document;
+
+            // Inject anti-blur CSS immediately upon load
+            injectAntiBlurStyles(doc);
+            if (doc.fonts && doc.fonts.ready) {
+              await doc.fonts.ready;
+            }
+
+            // Universal slide detection: find all slide sections
+            let slides = doc.querySelectorAll('.slide');
+            if (slides.length === 0) {
+              slides = doc.querySelectorAll('section, [data-slide], .page');
+            }
+            totalSlides = slides.length;
+
+            // Calculate total steps
+            let totalStepsCount = 0;
+            slides.forEach(s => {
+              totalStepsCount += s.querySelectorAll('.step').length;
+            });
+
+            detectedSlideCount.textContent = `${totalSlides}개 슬라이드 완벽 감지됨 (총 ${totalSlides + totalStepsCount}개 스냅샷 가능)`;
+            currentSlideIdx = 0;
+            setSandboxSlide(0, false);
+            resizeIframeScale();
+            showToast(`${totalSlides}개의 슬라이드 로드 및 흐림 방지 처리가 완료되었습니다.`);
+          } catch(err) {
+            console.error("Slide detection error:", err);
+          }
+        }, 350);
+      };
+    }
+
+    // Nav Listeners
+    prevSlideNav.addEventListener('click', () => setSandboxSlide(currentSlideIdx - 1, false));
+    nextSlideNav.addEventListener('click', () => setSandboxSlide(currentSlideIdx + 1, false));
+    stepSlideNav.addEventListener('click', () => triggerNextStepInSandbox());
+
+    // Handle uploaded HTML file
+    function handleFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target.result;
+        loadedFileName.textContent = file.name;
+        loadIntoIframe(content);
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    // File Drag & Drop
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-cyan-500', 'bg-slate-900');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-cyan-500', 'bg-slate-900');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-cyan-500', 'bg-slate-900');
+      if (e.dataTransfer.files.length > 0) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    // Reload default 5차시 preset
+    loadPresetBtn.addEventListener('click', () => {
+      loadedFileName.textContent = '5차시_지도학습의_4단계.html (원본 전체)';
+      loadIntoIframe(ORIGINAL_SLIDE_SOURCE);
+    });
+
+    // Wait for browser paint frames so canvas and DOM styles settle 100%
+    function waitForNextFrame() {
+      return new Promise(resolve => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve);
+        });
+      });
+    }
+
+    // High quality canvas capture with background color & anti-blur guarantee
+    async function captureCurrentSlide(slideElement, renderScale, win, doc) {
+      // 1. Enforce anti-blur CSS & inline 100% opacity on live DOM before cloning
+      injectAntiBlurStyles(doc);
+      forceElementSharpness(slideElement);
+
+      if (doc.fonts && doc.fonts.ready) {
+        await doc.fonts.ready;
+      }
+      await waitForNextFrame();
+
+      return await html2canvas(slideElement, {
+        scale: renderScale,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#f6f8fc',
+        logging: false,
+        width: 1920,
+        height: 1080,
+        windowWidth: 1920,
+        windowHeight: 1080,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          // 2. CRITICAL: Force-inject anti-blur CSS into html2canvas's cloned document
+          // so @keyframes fade does NOT restart at opacity: 0 inside the clone!
+          injectAntiBlurStyles(clonedDoc);
+
+          const clonedSlide = clonedDoc.querySelector('.slide.on, section.slide.on');
+          if (clonedSlide) {
+            forceElementSharpness(clonedSlide);
+          }
+
+          // 3. Sync internal canvas drawings 1:1 from origin to cloned DOM at 100% opacity
+          const origCanvases = slideElement.querySelectorAll('canvas');
+          const clonedCanvases = clonedSlide ? clonedSlide.querySelectorAll('canvas') : clonedDoc.querySelectorAll('.slide.on canvas');
+          origCanvases.forEach((orig, idx) => {
+            const target = clonedCanvases[idx];
+            if (target && orig.width > 0 && orig.height > 0) {
+              target.width = orig.width;
+              target.height = orig.height;
+              target.style.setProperty('opacity', '1', 'important');
+              target.style.setProperty('animation', 'none', 'important');
+              target.style.setProperty('transition', 'none', 'important');
+              const ctx = target.getContext('2d');
+              ctx.globalAlpha = 1.0;
+              ctx.clearRect(0, 0, target.width, target.height);
+              ctx.drawImage(orig, 0, 0);
+            }
+          });
+        }
+      });
+    }
+
+    // Append thumbnail
+    function addThumbnail(canvas, label) {
+      const thumbContainer = document.createElement('div');
+      thumbContainer.className = 'group relative bg-slate-950 border border-slate-800 rounded-lg overflow-hidden shadow transition hover:border-cyan-500';
+      
+      const img = document.createElement('img');
+      img.src = canvas.toDataURL('image/jpeg', 0.9);
+      img.className = 'w-full aspect-video object-cover';
+      
+      const badge = document.createElement('div');
+      badge.className = 'absolute top-1.5 left-1.5 bg-slate-900/80 backdrop-blur px-1.5 py-0.5 rounded text-[10px] font-mono text-cyan-400 border border-slate-700 font-bold';
+      badge.textContent = label;
+
+      thumbContainer.appendChild(img);
+      thumbContainer.appendChild(badge);
+      thumbGrid.appendChild(thumbContainer);
+      thumbCountBadge.textContent = `(${generatedCanvases.length}개 생성됨)`;
+      thumbContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    // Core PDF Conversion Engine
+    startConvertBtn.addEventListener('click', async () => {
+      if (isConverting) return;
+      if (totalSlides === 0) {
+        showToast('변환할 슬라이드가 감지되지 않았습니다.', false);
+        return;
+      }
+
+      isConverting = true;
+      startConvertBtn.disabled = true;
+      startConvertBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      downloadPdfBtn.classList.add('hidden');
+      progressCard.classList.remove('hidden');
+
+      thumbGrid.innerHTML = '';
+      emptyThumbNotice.classList.add('hidden');
+      generatedCanvases = [];
+
+      const win = slideSandbox.contentWindow;
+      const doc = slideSandbox.contentDocument || win.document;
+      const slides = doc.querySelectorAll('.slide, section.slide');
+      const mode = stepOption.value;
+      const renderScale = parseFloat(scaleInput.value);
+      const delayMs = parseInt(delayInput.value, 10);
+      const selectedRatio = document.querySelector('input[name="aspectRatio"]:checked').value;
+
+      const startTime = performance.now();
+
+      try {
+        if (mode === 'stepByStep') {
+          // PPT Animation Build Mode: Initial + step-by-step
+          for (let sIdx = 0; sIdx < slides.length; sIdx++) {
+            setSandboxSlide(sIdx, false);
+            await new Promise(r => setTimeout(r, delayMs));
+
+            const slideEl = slides[sIdx];
+            const stepsInSlide = Array.from(slideEl.querySelectorAll('.step'));
+
+            // Initial view
+            let canvas = await captureCurrentSlide(slideEl, renderScale, win, doc);
+            generatedCanvases.push(canvas);
+            addThumbnail(canvas, `P.${sIdx + 1}${stepsInSlide.length > 0 ? '-1' : ''}`);
+
+            // Increment steps
+            for (let stepIdx = 0; stepIdx < stepsInSlide.length; stepIdx++) {
+              if (typeof win.nextStep === 'function') {
+                win.nextStep();
+              } else {
+                stepsInSlide[stepIdx].classList.add('in');
+              }
+              forceElementSharpness(slideEl);
+              await new Promise(r => setTimeout(r, delayMs));
+
+              canvas = await captureCurrentSlide(slideEl, renderScale, win, doc);
+              generatedCanvases.push(canvas);
+              addThumbnail(canvas, `P.${sIdx + 1}-${stepIdx + 2}`);
+            }
+
+            const percent = Math.round(((sIdx + 1) / slides.length) * 88);
+            progressBar.style.width = `${percent}%`;
+            progressPercent.textContent = `${percent}%`;
+            progressStatusText.textContent = `슬라이드 [${sIdx + 1}/${slides.length}] 애니메이션 캡처 중...`;
+            currentSlideNum.textContent = `생성 페이지: ${generatedCanvases.length}`;
+            elapsedTime.textContent = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
+          }
+        } else {
+          // Full complete slides
+          const reveal = (mode === 'complete');
+          for (let sIdx = 0; sIdx < slides.length; sIdx++) {
+            setSandboxSlide(sIdx, reveal);
+            await new Promise(r => setTimeout(r, delayMs));
+
+            const canvas = await captureCurrentSlide(slides[sIdx], renderScale, win, doc);
+            generatedCanvases.push(canvas);
+            addThumbnail(canvas, `P.${sIdx + 1}`);
+
+            const percent = Math.round(((sIdx + 1) / slides.length) * 88);
+            progressBar.style.width = `${percent}%`;
+            progressPercent.textContent = `${percent}%`;
+            progressStatusText.textContent = `슬라이드 [${sIdx + 1}/${slides.length}] 캡처 중...`;
+            currentSlideNum.textContent = `${sIdx + 1} / ${slides.length}`;
+            elapsedTime.textContent = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
+          }
+        }
+
+        // Assemble PDF
+        progressStatusText.textContent = '고화질 PDF 문서 패킹 및 압축 중...';
+        progressBar.style.width = '95%';
+        progressPercent.textContent = '95%';
+
+        const { jsPDF } = window.jspdf;
+        const pageFormat = (selectedRatio === 'A4') ? 'a4' : [297, 167.06];
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: pageFormat,
+          compress: false
+        });
+
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        generatedCanvases.forEach((c, index) => {
+          if (index > 0) {
+            pdf.addPage(pageFormat, 'landscape');
+          }
+          const imgData = c.toDataURL('image/jpeg', 0.98);
+          pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
+        });
+
+        progressBar.style.width = '100%';
+        progressPercent.textContent = '100%';
+        progressStatusText.textContent = `총 ${generatedCanvases.length}페이지 PDF 완성!`;
+        elapsedTime.textContent = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
+
+        generatedPdfBlob = pdf.output('blob');
+        downloadSlideCount.textContent = generatedCanvases.length;
+        downloadPdfBtn.classList.remove('hidden');
+
+        showToast(`총 ${generatedCanvases.length}장의 슬라이드가 담긴 깨끗한 PDF 생성이 완료되었습니다!`);
+
+      } catch (error) {
+        console.error('PDF Generation Error:', error);
+        showToast('PDF 변환 중 오류가 발생했습니다.', false);
+        progressStatusText.textContent = '변환 실패';
+      } finally {
+        isConverting = false;
+        startConvertBtn.disabled = false;
+        startConvertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+
+    // Download PDF
+    downloadPdfBtn.addEventListener('click', () => {
+      if (!generatedPdfBlob) return;
+      const baseName = loadedFileName.textContent.replace(/\.[^/.]+$/, "").replace(/\s*\(.*?\)\s*/g, "") || "slides";
+      const isBuild = stepOption.value === 'stepByStep';
+      const fileName = `${baseName}_${isBuild ? '애니메이션전개' : '완성본'}.pdf`;
+      const url = URL.createObjectURL(generatedPdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`${fileName} 다운로드가 완료되었습니다.`);
+    });
+
+    // Auto load on init
+    window.addEventListener('DOMContentLoaded', () => {
+      loadIntoIframe(ORIGINAL_SLIDE_SOURCE);
+      setTimeout(resizeIframeScale, 300);
+    });
+  </script>
+</body>
+</html>
